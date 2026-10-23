@@ -169,7 +169,8 @@ object StlParser {
         var minZ = Float.POSITIVE_INFINITY; var maxZ = Float.NEGATIVE_INFINITY
 
         var lineCount = 0
-        reader.forEachLine { rawLine ->
+        while (true) {
+            val rawLine = reader.readLine() ?: break
             if (++lineCount % 4096 == 0) coroutineContext.ensureActive()
 
             val line = rawLine.trim()
