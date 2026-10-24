@@ -2,6 +2,7 @@ package com.ministl.viewer.parser
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.OpenableColumns
 import com.ministl.viewer.model.BoundingBox
 import com.ministl.viewer.model.StlMesh
 import kotlinx.coroutines.Dispatchers
@@ -21,10 +22,17 @@ import kotlin.math.sqrt
 
 object StlParser {
 
-    private const val MAX_TRIANGLES = 1_000_000
+    private const val MAX_TRIANGLES = 2_000_000
 
-    suspend fun parse(contentResolver: ContentResolver, uri: Uri): StlMesh = withContext(Dispatchers.IO) {
+    suspend fun parse(
+        contentResolver: ContentResolver,
+        uri: Uri,
+        onProgress: (Float) -> Unit = {}
+    ): StlMesh = withContext(Dispatchers.IO) {
         val fileSize = contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+        val fileName = resolveFileName(contentResolver, uri)
+
+        onProgress(0.02f)
 
         contentResolver.openInputStream(uri)?.use { rawStream ->
             val stream = BufferedInputStream(rawStream, 64 * 1024)
@@ -35,12 +43,27 @@ object StlParser {
             stream.reset()
 
             val isBinary = isBinaryStl(headerBytes, bytesRead, fileSize)
-            if (isBinary) {
-                parseBinary(stream)
+            val mesh = if (isBinary) {
+                parseBinary(stream, fileName, onProgress)
             } else {
-                parseAscii(stream)
+                parseAscii(stream, fileSize, fileName, onProgress)
             }
+            onProgress(1.0f)
+            mesh
         } ?: throw IllegalArgumentException("No se pudo abrir el archivo STL.")
+    }
+
+    private fun resolveFileName(contentResolver: ContentResolver, uri: Uri): String {
+        return try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) cursor.getString(idx) else null
+                } else null
+            } ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Modelo.stl"
+        } catch (_: Exception) {
+            "Modelo.stl"
+        }
     }
 
     /**
@@ -68,7 +91,11 @@ object StlParser {
         return false
     }
 
-    private suspend fun parseBinary(stream: InputStream): StlMesh {
+    private suspend fun parseBinary(
+        stream: InputStream,
+        fileName: String,
+        onProgress: (Float) -> Unit
+    ): StlMesh {
         val header = ByteArray(84)
         if (readFully(stream, header, 84) < 84) {
             throw IllegalArgumentException("Archivo STL binario corrupto o incompleto.")
@@ -112,7 +139,8 @@ object StlParser {
                 chunkBuffer.short // Attribute byte count (2 bytes)
 
                 // Si el STL no trae normal calculada (0,0,0), la calculamos con producto cruzado
-                if (nx == 0f && ny == 0f && nz == 0f) {
+                val lenSq = nx * nx + ny * ny + nz * nz
+                if (lenSq < 1e-6f) {
                     val ux = v2x - v1x; val uy = v2y - v1y; val uz = v2z - v1z
                     val vx = v3x - v1x; val vy = v3y - v1y; val vz = v3z - v1z
                     nx = uy * vz - uz * vy
@@ -122,6 +150,9 @@ object StlParser {
                     if (len > 1e-6f) {
                         nx /= len; ny /= len; nz /= len
                     }
+                } else {
+                    val invLen = 1f / sqrt(lenSq)
+                    nx *= invLen; ny *= invLen; nz *= invLen
                 }
 
                 // Actualizar Bounding Box
@@ -138,10 +169,17 @@ object StlParser {
                 normalBuffer.put(nx).put(ny).put(nz)
             }
             trianglesRead += actualTris
+            onProgress((trianglesRead.toFloat() / triCount.toFloat()).coerceIn(0.05f, 0.95f))
         }
 
-        val bbox = BoundingBox(minX, maxX, minY, maxY, minZ, maxZ)
-        centerMeshInPlace(vertexBuffer, trianglesRead * 9, bbox)
+        val rawBbox = BoundingBox(minX, maxX, minY, maxY, minZ, maxZ)
+        centerMeshInPlace(vertexBuffer, trianglesRead * 9, rawBbox)
+
+        val centeredBbox = BoundingBox(
+            minX = -rawBbox.widthX * 0.5f, maxX = rawBbox.widthX * 0.5f,
+            minY = -rawBbox.depthY * 0.5f, maxY = rawBbox.depthY * 0.5f,
+            minZ = -rawBbox.heightZ * 0.5f, maxZ = rawBbox.heightZ * 0.5f
+        )
 
         vertexBuffer.position(0)
         normalBuffer.position(0)
@@ -150,28 +188,41 @@ object StlParser {
             vertexBuffer = vertexBuffer,
             normalBuffer = normalBuffer,
             triangleCount = trianglesRead,
-            boundingBox = bbox,
-            isBinary = true
+            boundingBox = centeredBbox,
+            isBinary = true,
+            fileName = fileName
         )
     }
 
-    private suspend fun parseAscii(stream: InputStream): StlMesh {
+    private suspend fun parseAscii(
+        stream: InputStream,
+        fileSize: Long,
+        fileName: String,
+        onProgress: (Float) -> Unit
+    ): StlMesh {
         val reader = BufferedReader(InputStreamReader(stream, Charsets.US_ASCII), 64 * 1024)
-        var capacityFloats = 30_000 * 9
+        val capacityFloats = 30_000 * 9
         var vertices = FloatArray(capacityFloats)
         var normals = FloatArray(capacityFloats)
 
         var floatIndex = 0
-        var curNx = 0f; var curNy = 0f; var curNz = 1f
+        var curNx = 0f; var curNy = 0f; var curNz = 0f
 
         var minX = Float.POSITIVE_INFINITY; var maxX = Float.NEGATIVE_INFINITY
         var minY = Float.POSITIVE_INFINITY; var maxY = Float.NEGATIVE_INFINITY
         var minZ = Float.POSITIVE_INFINITY; var maxZ = Float.NEGATIVE_INFINITY
 
         var lineCount = 0
+        var bytesApprox = 0L
         while (true) {
             val rawLine = reader.readLine() ?: break
-            if (++lineCount % 4096 == 0) coroutineContext.ensureActive()
+            bytesApprox += rawLine.length + 1
+            if (++lineCount % 4096 == 0) {
+                coroutineContext.ensureActive()
+                if (fileSize > 0) {
+                    onProgress((bytesApprox.toFloat() / fileSize.toFloat()).coerceIn(0.05f, 0.92f))
+                }
+            }
 
             val line = rawLine.trim()
             when {
@@ -180,7 +231,7 @@ object StlParser {
                     if (parts.size >= 5) {
                         curNx = parts[2].toFloatOrNull() ?: 0f
                         curNy = parts[3].toFloatOrNull() ?: 0f
-                        curNz = parts[4].toFloatOrNull() ?: 1f
+                        curNz = parts[4].toFloatOrNull() ?: 0f
                     }
                 }
                 line.startsWith("vertex", ignoreCase = true) -> {
@@ -210,6 +261,30 @@ object StlParser {
                             normals[floatIndex + 2] = curNz
 
                             floatIndex += 3
+
+                            // Al completar los 3 vértices del triángulo, verificar si la normal era (0,0,0)
+                            if (floatIndex % 9 == 0) {
+                                val base = floatIndex - 9
+                                var nx = normals[base]; var ny = normals[base + 1]; var nz = normals[base + 2]
+                                if (nx * nx + ny * ny + nz * nz < 1e-6f) {
+                                    val ux = vertices[base + 3] - vertices[base]
+                                    val uy = vertices[base + 4] - vertices[base + 1]
+                                    val uz = vertices[base + 5] - vertices[base + 2]
+                                    val wx = vertices[base + 6] - vertices[base]
+                                    val wy = vertices[base + 7] - vertices[base + 1]
+                                    val wz = vertices[base + 8] - vertices[base + 2]
+                                    nx = uy * wz - uz * wy
+                                    ny = uz * wx - ux * wz
+                                    nz = ux * wy - uy * wx
+                                    val len = sqrt(nx * nx + ny * ny + nz * nz)
+                                    if (len > 1e-6f) { nx /= len; ny /= len; nz /= len }
+                                    for (k in 0 until 9 step 3) {
+                                        normals[base + k] = nx
+                                        normals[base + k + 1] = ny
+                                        normals[base + k + 2] = nz
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -219,14 +294,20 @@ object StlParser {
         val triCount = floatIndex / 9
         if (triCount == 0) throw IllegalArgumentException("El archivo STL no contiene triángulos válidos.")
 
-        val bbox = BoundingBox(minX, maxX, minY, maxY, minZ, maxZ)
-        val cx = bbox.centerX; val cy = bbox.centerY; val cz = bbox.centerZ
+        val rawBbox = BoundingBox(minX, maxX, minY, maxY, minZ, maxZ)
+        val cx = rawBbox.centerX; val cy = rawBbox.centerY; val cz = rawBbox.centerZ
 
         for (i in 0 until floatIndex step 3) {
             vertices[i] -= cx
             vertices[i + 1] -= cy
             vertices[i + 2] -= cz
         }
+
+        val centeredBbox = BoundingBox(
+            minX = -rawBbox.widthX * 0.5f, maxX = rawBbox.widthX * 0.5f,
+            minY = -rawBbox.depthY * 0.5f, maxY = rawBbox.depthY * 0.5f,
+            minZ = -rawBbox.heightZ * 0.5f, maxZ = rawBbox.heightZ * 0.5f
+        )
 
         val vertexBuffer = allocateDirectFloatBuffer(floatIndex).apply {
             put(vertices, 0, floatIndex)
@@ -241,8 +322,9 @@ object StlParser {
             vertexBuffer = vertexBuffer,
             normalBuffer = normalBuffer,
             triangleCount = triCount,
-            boundingBox = bbox,
-            isBinary = false
+            boundingBox = centeredBbox,
+            isBinary = false,
+            fileName = fileName
         )
     }
 

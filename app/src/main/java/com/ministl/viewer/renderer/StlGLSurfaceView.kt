@@ -10,6 +10,8 @@ class StlGLSurfaceView(context: Context) : GLSurfaceView(context) {
     val renderer: StlRenderer
     private val scaleDetector: ScaleGestureDetector
 
+    var onCameraRotationChanged: ((pitchX: Float, yawZ: Float) -> Unit)? = null
+
     private var prevX = 0f
     private var prevY = 0f
 
@@ -23,7 +25,7 @@ class StlGLSurfaceView(context: Context) : GLSurfaceView(context) {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
                 val factor = detector.scaleFactor
                 if (factor > 0f) {
-                    renderer.cameraDistance = (renderer.cameraDistance / factor).coerceIn(0.5f, 25000f)
+                    renderer.cameraDistance = (renderer.cameraDistance / factor).coerceIn(5f, 25000f)
                     requestRender()
                 }
                 return true
@@ -47,9 +49,10 @@ class StlGLSurfaceView(context: Context) : GLSurfaceView(context) {
                 val dy = cy - prevY
 
                 if (pointerCount == 1 && !scaleDetector.isInProgress) {
-                    // 1 dedo: Rotación orbital
-                    renderer.rotY += dx * 0.45f
-                    renderer.rotX = (renderer.rotX + dy * 0.45f).coerceIn(-90f, 90f)
+                    // 1 dedo: Rotación orbital Z-Up (Azimut Z y Elevación X)
+                    renderer.rotY = (renderer.rotY + dx * 0.45f) % 360f
+                    renderer.rotX = (renderer.rotX + dy * 0.45f).coerceIn(-180f, 0f)
+                    onCameraRotationChanged?.invoke(renderer.rotX, renderer.rotY)
                     requestRender()
                 } else if (pointerCount >= 2) {
                     // 2 dedos: Desplazamiento (Pan) proporcional a la distancia de la cámara

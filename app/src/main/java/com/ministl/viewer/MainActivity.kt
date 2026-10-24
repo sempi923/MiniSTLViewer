@@ -42,6 +42,12 @@ class MainActivity : ComponentActivity() {
                     onOpenFileClick = {
                         // Acepta tipos MIME de STL o binarios genéricos sin pedir permisos de almacenamiento
                         openDocumentLauncher.launch(arrayOf("*/*"))
+                    },
+                    onLoadSampleClick = {
+                        viewModel.loadSampleCalibrationMesh()
+                    },
+                    onTransformOrThresholdChanged = { transform, thresholdDeg ->
+                        viewModel.updateAnalysisForTransform(transform, thresholdDeg)
                     }
                 )
             }
