@@ -28,7 +28,7 @@ import kotlin.math.sqrt
  * Parser nativo y ligero para archivos .3MF (3D Manufacturing Format).
  * Copia el stream a un archivo temporal en `context.cacheDir` (`temp_model.3mf`) y utiliza
  * [ZipFile] para soportar entradas con Data Descriptors generadas por Bambu Studio y OrcaSlicer,
- * acumulando la geometría de todos los archivos `.model` (`3D/3dmodel.model` y `3D/Objects/*.model`).
+ * acumulando la geometría de todos los archivos `.model` (`3D/3dmodel.model` y `3D/Objects/`).
  */
 object ThreeMfParser {
 
