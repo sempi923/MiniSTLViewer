@@ -1,6 +1,7 @@
 package com.ministl.viewer.parser
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.ministl.viewer.model.BoundingBox
@@ -25,10 +26,11 @@ object StlParser {
     private const val MAX_TRIANGLES = 2_000_000
 
     suspend fun parse(
-        contentResolver: ContentResolver,
+        context: Context,
         uri: Uri,
         onProgress: (Float) -> Unit = {}
     ): StlMesh = withContext(Dispatchers.IO) {
+        val contentResolver = context.contentResolver
         val fileSize = contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
         val fileName = resolveFileName(contentResolver, uri)
 
@@ -50,7 +52,7 @@ object StlParser {
                 headerBytes[3] == 0x04.toByte()
 
             if (isZipMagic || fileName.endsWith(".3mf", ignoreCase = true)) {
-                return@withContext ThreeMfParser.parseFromStream(stream, fileName, onProgress)
+                return@withContext ThreeMfParser.parseFromStream(context, stream, fileName, onProgress)
             }
 
             val isBinary = isBinaryStl(headerBytes, bytesRead, fileSize)

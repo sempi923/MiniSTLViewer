@@ -1,6 +1,7 @@
 package com.ministl.viewer.parser
 
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.ministl.viewer.model.StlMesh
@@ -16,12 +17,17 @@ import java.io.BufferedInputStream
 object ModelLoader {
 
     suspend fun load(
-        contentResolver: ContentResolver,
+        context: Context,
         uri: Uri,
         onProgress: (Float) -> Unit = {}
     ): StlMesh = withContext(Dispatchers.IO) {
+        val contentResolver = context.contentResolver
         val fileName = resolveFileName(contentResolver, uri)
         val has3mfExtension = fileName.endsWith(".3mf", ignoreCase = true)
+
+        if (has3mfExtension) {
+            return@withContext ThreeMfParser.parse(context, uri, fileName, onProgress)
+        }
 
         contentResolver.openInputStream(uri)?.use { rawStream ->
             val buffered = BufferedInputStream(rawStream, 64 * 1024)
@@ -36,10 +42,10 @@ object ModelLoader {
                 magic[2] == 0x03.toByte() && // '\x03'
                 magic[3] == 0x04.toByte()    // '\x04'
 
-            if (has3mfExtension || isZipMagic) {
-                ThreeMfParser.parseFromStream(buffered, fileName, onProgress)
+            if (isZipMagic) {
+                ThreeMfParser.parseFromStream(context, buffered, fileName, onProgress)
             } else {
-                StlParser.parse(contentResolver, uri, onProgress)
+                StlParser.parse(context, uri, onProgress)
             }
         } ?: throw IllegalArgumentException("No se pudo abrir el archivo 3D seleccionado.")
     }

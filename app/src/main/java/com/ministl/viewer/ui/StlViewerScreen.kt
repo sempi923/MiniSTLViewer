@@ -20,9 +20,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -81,9 +86,13 @@ fun StlViewerScreen(
     // Estado del Gizmo de Orientación 3D (sincronizado con StlRenderer)
     var camPitchX by remember { mutableFloatStateOf(CameraPreset.ISO.pitchX) }
     var camYawZ by remember { mutableFloatStateOf(CameraPreset.ISO.yawZ) }
+    var currentPresetIndex by remember { mutableIntStateOf(0) }
+    val cameraPresets = remember {
+        listOf(CameraPreset.ISO, CameraPreset.TOP, CameraPreset.FRONT, CameraPreset.RIGHT)
+    }
 
-    // Estado del Bottom Sheet modular y diálogo de privacidad
-    var isSheetExpanded by remember { mutableStateOf(true) }
+    // Estado del Bottom Sheet modular (colapsado por defecto) y diálogo de privacidad
+    var isSheetExpanded by remember { mutableStateOf(false) }
     var activeTab by remember { mutableStateOf(InspectorTab.MODEL) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
 
@@ -107,9 +116,10 @@ fun StlViewerScreen(
         }
     }
 
-    // Enviar la malla al hilo OpenGL cuando se cargue un nuevo modelo
+    // Enviar la malla al hilo OpenGL cuando se cargue un nuevo modelo y mantener el panel colapsado por defecto
     LaunchedEffect(uiState) {
         if (uiState is UiState.Success) {
+            isSheetExpanded = false
             glSurfaceViewRef?.let { glView ->
                 glView.queueEvent {
                     glView.renderer.setMesh(uiState.mesh)
@@ -157,35 +167,37 @@ fun StlViewerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // 2. Barra Superior Técnica + Gizmo 3D de Orientación XYZ (Esquina Superior Derecha)
+        // 2. Barra Superior Transparente y Compacta + Gizmo XYZ Flotante (56dp)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Cabecera de Estado del Modelo (Izquierda)
-            TopTechnicalHeader(
-                uiState = uiState,
-                onOpenFileClick = onOpenFileClick,
-                onLoadSampleClick = onLoadSampleClick,
-                onPrivacyInfoClick = { showPrivacyDialog = true },
-                modifier = Modifier.weight(1f, fill = false)
+            // Izquierda: Título "Rabbit3D" + único botón de icono compacto (carpeta +)
+            MinimalTopBar(
+                onOpenFileClick = onOpenFileClick
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Widget Gizmo 3D Interactivo + Vistas Ortogonales (Derecha)
-            OrientationGizmoCard(
+            // Derecha: Círculo del gizmo XYZ flotante (56dp) sin fondo pesado
+            FloatingOrientationGizmo(
                 pitchX = camPitchX,
                 yawZ = camYawZ,
-                onSelectPreset = { preset ->
+                onTapGizmo = { tappedPreset ->
+                    val nextPreset = if (tappedPreset != null) {
+                        currentPresetIndex = cameraPresets.indexOf(tappedPreset).coerceAtLeast(0)
+                        tappedPreset
+                    } else {
+                        currentPresetIndex = (currentPresetIndex + 1) % cameraPresets.size
+                        cameraPresets[currentPresetIndex]
+                    }
                     glSurfaceViewRef?.let { glView ->
-                        glView.renderer.applyCameraPreset(preset)
-                        camPitchX = preset.pitchX
-                        camYawZ = preset.yawZ
+                        glView.renderer.resetCamera()
+                        glView.renderer.applyCameraPreset(nextPreset)
+                        camPitchX = nextPreset.pitchX
+                        camYawZ = nextPreset.yawZ
                         glView.requestRender()
                     }
                 }
@@ -225,128 +237,135 @@ fun StlViewerScreen(
             is UiState.Success -> Unit
         }
 
-        // 4. Contenedor Inferior: Floating Action Pills + Bottom Sheet Modular Retraíble
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .navigationBarsPadding()
-        ) {
-            // Floating Action Pills (Acceso rápido con estética glassmorphism)
-            FloatingActionPillsRow(
-                showPrintBed = showPrintBed,
-                onTogglePrintBed = {
-                    showPrintBed = !showPrintBed
-                    syncRendererAndRedraw()
-                },
-                renderMode = renderMode,
-                onCycleRenderMode = {
-                    renderMode = when (renderMode) {
-                        MeshRenderMode.SOLID -> MeshRenderMode.SOLID_WIREFRAME
-                        MeshRenderMode.SOLID_WIREFRAME -> MeshRenderMode.WIREFRAME
-                        MeshRenderMode.WIREFRAME -> MeshRenderMode.SOLID
+        // 4. Contenedor Inferior: Oculto hasta que se cargue un modelo
+        if (uiState is UiState.Success) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+            ) {
+                // Fila de iconos circulares minimalistas (sin textos largos)
+                FloatingActionPillsRow(
+                    showPrintBed = showPrintBed,
+                    onTogglePrintBed = {
+                        showPrintBed = !showPrintBed
+                        syncRendererAndRedraw()
+                    },
+                    renderMode = renderMode,
+                    onCycleRenderMode = {
+                        renderMode = when (renderMode) {
+                            MeshRenderMode.SOLID -> MeshRenderMode.SOLID_WIREFRAME
+                            MeshRenderMode.SOLID_WIREFRAME -> MeshRenderMode.WIREFRAME
+                            MeshRenderMode.WIREFRAME -> MeshRenderMode.SOLID
+                        }
+                        syncRendererAndRedraw()
+                    },
+                    overhangInspector = overhangInspector,
+                    onToggleOverhang = {
+                        overhangInspector = !overhangInspector
+                        syncRendererAndRedraw()
+                    },
+                    clippingEnabled = clippingEnabled,
+                    onToggleClipping = {
+                        clippingEnabled = !clippingEnabled
+                        if (clippingEnabled && clippingProgress >= 0.99f) {
+                            clippingProgress = 0.55f
+                        }
+                        syncRendererAndRedraw()
+                    },
+                    onResetCamera = {
+                        glSurfaceViewRef?.let { glView ->
+                            glView.renderer.resetCamera()
+                            camPitchX = glView.renderer.rotX
+                            camYawZ = glView.renderer.rotY
+                            glView.requestRender()
+                        }
                     }
-                    syncRendererAndRedraw()
-                },
-                overhangInspector = overhangInspector,
-                onToggleOverhang = {
-                    overhangInspector = !overhangInspector
-                    syncRendererAndRedraw()
-                },
-                clippingEnabled = clippingEnabled,
-                onToggleClipping = {
-                    clippingEnabled = !clippingEnabled
-                    if (clippingEnabled && clippingProgress >= 0.99f) {
-                        clippingProgress = 0.55f
-                    }
-                    syncRendererAndRedraw()
-                },
-                onResetCamera = {
-                    glSurfaceViewRef?.let { glView ->
-                        glView.renderer.resetCamera()
-                        camPitchX = glView.renderer.rotX
-                        camYawZ = glView.renderer.rotY
-                        glView.requestRender()
-                    }
-                }
-            )
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Bottom Sheet Modular (Modelo, Materiales, Análisis, Transformar)
-            BambuModularBottomSheet(
-                uiState = uiState,
-                isExpanded = isSheetExpanded,
-                onToggleExpanded = { isSheetExpanded = !isSheetExpanded },
-                activeTab = activeTab,
-                onSelectTab = { tab ->
-                    activeTab = tab
-                    isSheetExpanded = true
-                },
-                onOpenFileClick = onOpenFileClick,
-                onLoadSampleClick = onLoadSampleClick,
-                selectedMaterial = selectedMaterial,
-                onSelectMaterial = { mat ->
-                    selectedMaterial = mat
-                    filamentPricePerKg = mat.defaultPricePerKg
-                    syncRendererAndRedraw()
-                },
-                selectedSwatch = selectedSwatch,
-                onSelectSwatch = { swatch ->
-                    selectedSwatch = swatch
-                    syncRendererAndRedraw()
-                },
-                renderMode = renderMode,
-                onSelectRenderMode = { mode ->
-                    renderMode = mode
-                    syncRendererAndRedraw()
-                },
-                wireframeWidth = wireframeWidth,
-                onWireframeWidthChange = { width ->
-                    wireframeWidth = width
-                    syncRendererAndRedraw()
-                },
-                filamentPricePerKg = filamentPricePerKg,
-                onPricePerKgChange = { filamentPricePerKg = it },
-                clippingEnabled = clippingEnabled,
-                onClippingEnabledChange = { enabled ->
-                    clippingEnabled = enabled
-                    if (enabled && clippingProgress >= 0.99f) clippingProgress = 0.6f
-                    syncRendererAndRedraw()
-                },
-                clippingAxis = clippingAxis,
-                onClippingAxisChange = { axis ->
-                    clippingAxis = axis
-                    syncRendererAndRedraw()
-                },
-                clippingProgress = clippingProgress,
-                onClippingProgressChange = { prog ->
-                    clippingProgress = prog
-                    syncRendererAndRedraw()
-                },
-                overhangInspector = overhangInspector,
-                onOverhangInspectorChange = { enabled ->
-                    overhangInspector = enabled
-                    syncRendererAndRedraw()
-                },
-                overhangThresholdDeg = overhangThresholdDeg,
-                onOverhangThresholdChange = { deg ->
-                    overhangThresholdDeg = deg
-                    syncRendererAndRedraw()
-                    onTransformOrThresholdChanged(modelTransform, deg)
-                },
-                modelTransform = modelTransform,
-                onModelTransformChange = { newTransform ->
-                    val rotationChanged = newTransform.rotXDeg != modelTransform.rotXDeg ||
-                        newTransform.rotYDeg != modelTransform.rotYDeg ||
-                        newTransform.rotZDeg != modelTransform.rotZDeg
-                    modelTransform = newTransform
-                    syncRendererAndRedraw()
-                    if (rotationChanged) {
-                        onTransformOrThresholdChanged(newTransform, overhangThresholdDeg)
+                // Bottom Sheet Modular colapsado por defecto (se despliega al tocar una pestaña)
+                BambuModularBottomSheet(
+                    uiState = uiState,
+                    isExpanded = isSheetExpanded,
+                    onToggleExpanded = { isSheetExpanded = !isSheetExpanded },
+                    activeTab = activeTab,
+                    onSelectTab = { tab ->
+                        activeTab = tab
+                        isSheetExpanded = true
+                    },
+                    showPrintBed = showPrintBed,
+                    onTogglePrintBed = {
+                        showPrintBed = it
+                        syncRendererAndRedraw()
+                    },
+                    onOpenFileClick = onOpenFileClick,
+                    onLoadSampleClick = onLoadSampleClick,
+                    selectedMaterial = selectedMaterial,
+                    onSelectMaterial = { mat ->
+                        selectedMaterial = mat
+                        filamentPricePerKg = mat.defaultPricePerKg
+                        syncRendererAndRedraw()
+                    },
+                    selectedSwatch = selectedSwatch,
+                    onSelectSwatch = { swatch ->
+                        selectedSwatch = swatch
+                        syncRendererAndRedraw()
+                    },
+                    renderMode = renderMode,
+                    onSelectRenderMode = { mode ->
+                        renderMode = mode
+                        syncRendererAndRedraw()
+                    },
+                    wireframeWidth = wireframeWidth,
+                    onWireframeWidthChange = { width ->
+                        wireframeWidth = width
+                        syncRendererAndRedraw()
+                    },
+                    filamentPricePerKg = filamentPricePerKg,
+                    onPricePerKgChange = { filamentPricePerKg = it },
+                    clippingEnabled = clippingEnabled,
+                    onClippingEnabledChange = { enabled ->
+                        clippingEnabled = enabled
+                        if (enabled && clippingProgress >= 0.99f) clippingProgress = 0.6f
+                        syncRendererAndRedraw()
+                    },
+                    clippingAxis = clippingAxis,
+                    onClippingAxisChange = { axis ->
+                        clippingAxis = axis
+                        syncRendererAndRedraw()
+                    },
+                    clippingProgress = clippingProgress,
+                    onClippingProgressChange = { prog ->
+                        clippingProgress = prog
+                        syncRendererAndRedraw()
+                    },
+                    overhangInspector = overhangInspector,
+                    onOverhangInspectorChange = { enabled ->
+                        overhangInspector = enabled
+                        syncRendererAndRedraw()
+                    },
+                    overhangThresholdDeg = overhangThresholdDeg,
+                    onOverhangThresholdChange = { deg ->
+                        overhangThresholdDeg = deg
+                        syncRendererAndRedraw()
+                        onTransformOrThresholdChanged(modelTransform, deg)
+                    },
+                    modelTransform = modelTransform,
+                    onModelTransformChange = { newTransform ->
+                        val rotationChanged = newTransform.rotXDeg != modelTransform.rotXDeg ||
+                            newTransform.rotYDeg != modelTransform.rotYDeg ||
+                            newTransform.rotZDeg != modelTransform.rotZDeg
+                        modelTransform = newTransform
+                        syncRendererAndRedraw()
+                        if (rotationChanged) {
+                            onTransformOrThresholdChanged(newTransform, overhangThresholdDeg)
+                        }
                     }
-                }
-            )
+                )
+            }
         }
 
         if (showPrivacyDialog) {
@@ -355,262 +374,231 @@ fun StlViewerScreen(
     }
 }
 
+/**
+ * Barra superior transparente y compacta que muestra únicamente el título "Rabbit3D"
+ * y un único botón de icono compacto (carpeta +) para cargar archivo.
+ */
 @Composable
-private fun TopTechnicalHeader(
-    uiState: UiState,
+private fun MinimalTopBar(
     onOpenFileClick: () -> Unit,
-    onLoadSampleClick: () -> Unit,
-    onPrivacyInfoClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Row(
         modifier = modifier,
-        color = BambuGlassSurface,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, BambuBorderSubtle)
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(BambuGreenBright)
-                )
-                Text(
-                    text = "Rabbit3D Viewer",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = BambuGreenBright
-                )
-                Text(
-                    text = "• STL / 3MF",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = BambuTextSecondary
-                )
-            }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(BambuGreenBright)
+            )
+            Text(
+                text = "Rabbit3D",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = BambuTextPrimary
+            )
+        }
 
-            Spacer(modifier = Modifier.height(4.dp))
+        // Único botón de icono compacto (carpeta +) para cargar archivo
+        Surface(
+            color = BambuGlassSurface.copy(alpha = 0.72f),
+            shape = CircleShape,
+            border = BorderStroke(1.dp, BambuBorderSubtle),
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onOpenFileClick)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Canvas(modifier = Modifier.size(18.dp)) {
+                    val w = size.width
+                    val h = size.height
+                    val strokeW = 1.7.dp.toPx()
 
-            if (uiState is UiState.Success) {
-                val mesh = uiState.mesh
-                Text(
-                    text = mesh.fileName,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TechnicalBadge(
-                        text = mesh.formatBadge,
-                        backgroundColor = BambuGreenDim,
-                        contentColor = BambuGreenBright
+                    // Contorno de carpeta
+                    val folderPath = Path().apply {
+                        moveTo(w * 0.08f, h * 0.26f)
+                        lineTo(w * 0.38f, h * 0.26f)
+                        lineTo(w * 0.48f, h * 0.38f)
+                        lineTo(w * 0.92f, h * 0.38f)
+                        lineTo(w * 0.92f, h * 0.82f)
+                        lineTo(w * 0.08f, h * 0.82f)
+                        close()
+                    }
+                    drawPath(
+                        path = folderPath,
+                        color = BambuGreenBright,
+                        style = Stroke(width = strokeW, join = StrokeJoin.Round)
                     )
-                    Text(
-                        text = String.format(Locale.US, "%,d tris", mesh.triangleCount),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = BambuTextSecondary
+
+                    // Símbolo '+' dentro de la carpeta
+                    val cx = w * 0.52f
+                    val cy = h * 0.60f
+                    val arm = w * 0.14f
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(cx - arm, cy),
+                        end = Offset(cx + arm, cy),
+                        strokeWidth = strokeW,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(cx, cy - arm),
+                        end = Offset(cx, cy + arm),
+                        strokeWidth = strokeW,
+                        cap = StrokeCap.Round
                     )
                 }
-            } else {
-                Text(
-                    text = "Placa PEI 256×256 mm",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = BambuTextSecondary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CompactActionButton(
-                    text = "Cargar STL / 3MF",
-                    isPrimary = true,
-                    onClick = onOpenFileClick
-                )
-                CompactActionButton(
-                    text = "Pieza Test",
-                    isPrimary = false,
-                    onClick = onLoadSampleClick
-                )
-                CompactActionButton(
-                    text = "ⓘ Privacidad",
-                    isPrimary = false,
-                    onClick = onPrivacyInfoClick
-                )
             }
         }
     }
 }
 
 /**
- * Widget tipo Gizmo 3D interactivo en la esquina superior derecha.
- * Proyecta los ejes X (Rojo), Y (Verde) y Z (Azul) según la rotación actual de la cámara
- * y permite alinear instantáneamente a vistas ortogonales (TOP, FRONT, RIGHT, ISO).
+ * Círculo del gizmo XYZ flotante (56dp) sin tarjeta ni fondo pesado;
+ * al tocarlo rota entre las vistas principales y centra la cámara.
  */
 @Composable
-private fun OrientationGizmoCard(
+private fun FloatingOrientationGizmo(
     pitchX: Float,
     yawZ: Float,
-    onSelectPreset: (CameraPreset) -> Unit
+    onTapGizmo: (CameraPreset?) -> Unit
 ) {
     val textMeasurer = rememberTextMeasurer()
 
-    Surface(
-        color = BambuGlassSurface,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, BambuBorderSubtle)
-    ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(84.dp)
-                    .pointerInput(pitchX, yawZ) {
-                        detectTapGestures { offset ->
-                            val cx = size.width * 0.5f
-                            val cy = size.height * 0.5f
-                            val axisLen = size.width * 0.34f
-
-                            val xTip = projectAxisVector(1f, 0f, 0f, pitchX, yawZ, cx, cy, axisLen)
-                            val yTip = projectAxisVector(0f, 1f, 0f, pitchX, yawZ, cx, cy, axisLen)
-                            val zTip = projectAxisVector(0f, 0f, 1f, pitchX, yawZ, cx, cy, axisLen)
-
-                            val dX = hypot(offset.x - xTip.first.x, offset.y - xTip.first.y)
-                            val dY = hypot(offset.x - yTip.first.x, offset.y - yTip.first.y)
-                            val dZ = hypot(offset.x - zTip.first.x, offset.y - zTip.first.y)
-
-                            val minDist = minOf(dX, minOf(dY, dZ))
-                            if (minDist < 34f) {
-                                when (minDist) {
-                                    dZ -> onSelectPreset(CameraPreset.TOP)
-                                    dX -> onSelectPreset(CameraPreset.RIGHT)
-                                    else -> onSelectPreset(CameraPreset.FRONT)
-                                }
-                            } else {
-                                onSelectPreset(CameraPreset.ISO)
-                            }
-                        }
-                    }
-            ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .clip(CircleShape)
+            .pointerInput(pitchX, yawZ) {
+                detectTapGestures { offset ->
                     val cx = size.width * 0.5f
                     val cy = size.height * 0.5f
-                    val radius = size.width * 0.34f
+                    val axisLen = size.width * 0.34f
 
-                    // Círculo de órbita técnica
-                    drawCircle(
-                        color = BambuBorderSubtle.copy(alpha = 0.55f),
-                        radius = radius + 6.dp.toPx(),
-                        center = Offset(cx, cy)
-                    )
+                    val xTip = projectAxisVector(1f, 0f, 0f, pitchX, yawZ, cx, cy, axisLen)
+                    val yTip = projectAxisVector(0f, 1f, 0f, pitchX, yawZ, cx, cy, axisLen)
+                    val zTip = projectAxisVector(0f, 0f, 1f, pitchX, yawZ, cx, cy, axisLen)
 
-                    data class AxisNode(
-                        val label: String,
-                        val pos: Offset,
-                        val depth: Float,
-                        val color: Color,
-                        val isPositive: Boolean
-                    )
+                    val dX = hypot(offset.x - xTip.first.x, offset.y - xTip.first.y)
+                    val dY = hypot(offset.x - yTip.first.x, offset.y - yTip.first.y)
+                    val dZ = hypot(offset.x - zTip.first.x, offset.y - zTip.first.y)
 
-                    val (posX, depthX) = projectAxisVector(1f, 0f, 0f, pitchX, yawZ, cx, cy, radius)
-                    val (negX, depthNX) = projectAxisVector(-1f, 0f, 0f, pitchX, yawZ, cx, cy, radius)
-                    val (posY, depthY) = projectAxisVector(0f, 1f, 0f, pitchX, yawZ, cx, cy, radius)
-                    val (negY, depthNY) = projectAxisVector(0f, -1f, 0f, pitchX, yawZ, cx, cy, radius)
-                    val (posZ, depthZ) = projectAxisVector(0f, 0f, 1f, pitchX, yawZ, cx, cy, radius)
-                    val (negZ, depthNZ) = projectAxisVector(0f, 0f, -1f, pitchX, yawZ, cx, cy, radius)
-
-                    val nodes = listOf(
-                        AxisNode("X", posX, depthX, AxisXRed, true),
-                        AxisNode("-X", negX, depthNX, AxisXRed.copy(alpha = 0.45f), false),
-                        AxisNode("Y", posY, depthY, AxisYGreen, true),
-                        AxisNode("-Y", negY, depthNY, AxisYGreen.copy(alpha = 0.45f), false),
-                        AxisNode("Z", posZ, depthZ, AxisZBlue, true),
-                        AxisNode("-Z", negZ, depthNZ, AxisZBlue.copy(alpha = 0.45f), false)
-                    ).sortedBy { it.depth }
-
-                    for (node in nodes) {
-                        if (node.isPositive) {
-                            drawLine(
-                                color = node.color,
-                                start = Offset(cx, cy),
-                                end = node.pos,
-                                strokeWidth = 2.4.dp.toPx(),
-                                cap = StrokeCap.Round
-                            )
-                            drawCircle(
-                                color = node.color,
-                                radius = 7.5.dp.toPx(),
-                                center = node.pos
-                            )
-                            val layoutResult = textMeasurer.measure(
-                                text = node.label,
-                                style = TextStyle(
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            )
-                            drawText(
-                                textLayoutResult = layoutResult,
-                                topLeft = Offset(
-                                    node.pos.x - layoutResult.size.width * 0.5f,
-                                    node.pos.y - layoutResult.size.height * 0.5f
-                                )
-                            )
-                        } else {
-                            drawCircle(
-                                color = node.color,
-                                radius = 4.dp.toPx(),
-                                center = node.pos
-                            )
+                    val minDist = minOf(dX, minOf(dY, dZ))
+                    if (minDist < 18f) {
+                        val target = when (minDist) {
+                            dZ -> CameraPreset.TOP
+                            dX -> CameraPreset.RIGHT
+                            else -> CameraPreset.FRONT
                         }
+                        val alreadyThere = kotlin.math.abs(pitchX - target.pitchX) < 1f &&
+                            kotlin.math.abs(yawZ - target.yawZ) < 1f
+                        if (alreadyThere) {
+                            onTapGizmo(null)
+                        } else {
+                            onTapGizmo(target)
+                        }
+                    } else {
+                        onTapGizmo(null)
                     }
+                }
+            }
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val cx = size.width * 0.5f
+            val cy = size.height * 0.5f
+            val radius = size.width * 0.34f
 
-                    // Punto central del gizmo
+            // Círculo flotante ligero sin fondo pesado
+            drawCircle(
+                color = BambuGlassSurface.copy(alpha = 0.38f),
+                radius = size.width * 0.48f,
+                center = Offset(cx, cy)
+            )
+            drawCircle(
+                color = BambuBorderSubtle.copy(alpha = 0.55f),
+                radius = size.width * 0.48f,
+                center = Offset(cx, cy),
+                style = Stroke(width = 1.dp.toPx())
+            )
+
+            data class AxisNode(
+                val label: String,
+                val pos: Offset,
+                val depth: Float,
+                val color: Color,
+                val isPositive: Boolean
+            )
+
+            val (posX, depthX) = projectAxisVector(1f, 0f, 0f, pitchX, yawZ, cx, cy, radius)
+            val (negX, depthNX) = projectAxisVector(-1f, 0f, 0f, pitchX, yawZ, cx, cy, radius)
+            val (posY, depthY) = projectAxisVector(0f, 1f, 0f, pitchX, yawZ, cx, cy, radius)
+            val (negY, depthNY) = projectAxisVector(0f, -1f, 0f, pitchX, yawZ, cx, cy, radius)
+            val (posZ, depthZ) = projectAxisVector(0f, 0f, 1f, pitchX, yawZ, cx, cy, radius)
+            val (negZ, depthNZ) = projectAxisVector(0f, 0f, -1f, pitchX, yawZ, cx, cy, radius)
+
+            val nodes = listOf(
+                AxisNode("X", posX, depthX, AxisXRed, true),
+                AxisNode("-X", negX, depthNX, AxisXRed.copy(alpha = 0.40f), false),
+                AxisNode("Y", posY, depthY, AxisYGreen, true),
+                AxisNode("-Y", negY, depthNY, AxisYGreen.copy(alpha = 0.40f), false),
+                AxisNode("Z", posZ, depthZ, AxisZBlue, true),
+                AxisNode("-Z", negZ, depthNZ, AxisZBlue.copy(alpha = 0.40f), false)
+            ).sortedBy { it.depth }
+
+            for (node in nodes) {
+                if (node.isPositive) {
+                    drawLine(
+                        color = node.color,
+                        start = Offset(cx, cy),
+                        end = node.pos,
+                        strokeWidth = 2.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
                     drawCircle(
-                        color = BambuTextPrimary,
-                        radius = 2.5.dp.toPx(),
-                        center = Offset(cx, cy)
+                        color = node.color,
+                        radius = 5.8.dp.toPx(),
+                        center = node.pos
+                    )
+                    val layoutResult = textMeasurer.measure(
+                        text = node.label,
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 7.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    )
+                    drawText(
+                        textLayoutResult = layoutResult,
+                        topLeft = Offset(
+                            node.pos.x - layoutResult.size.width * 0.5f,
+                            node.pos.y - layoutResult.size.height * 0.5f
+                        )
+                    )
+                } else {
+                    drawCircle(
+                        color = node.color,
+                        radius = 2.8.dp.toPx(),
+                        center = node.pos
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Botones rápidos de alineación ortogonal
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                listOf(
-                    CameraPreset.TOP,
-                    CameraPreset.FRONT,
-                    CameraPreset.RIGHT,
-                    CameraPreset.ISO
-                ).forEach { preset ->
-                    Text(
-                        text = preset.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = BambuTextPrimary,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(BambuSlateElevated)
-                            .clickable { onSelectPreset(preset) }
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-                }
-            }
+            // Punto central del gizmo
+            drawCircle(
+                color = BambuTextPrimary,
+                radius = 2.dp.toPx(),
+                center = Offset(cx, cy)
+            )
         }
     }
 }
@@ -653,6 +641,14 @@ private fun projectAxisVector(
     return Offset(screenX, screenY) to z2
 }
 
+private enum class QuickActionIcon {
+    PRINT_BED,
+    WIREFRAME,
+    OVERHANG,
+    CLIPPING,
+    RESET_CAMERA
+}
+
 @Composable
 private fun FloatingActionPillsRow(
     showPrintBed: Boolean,
@@ -668,34 +664,33 @@ private fun FloatingActionPillsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FloatingPillButton(
-            label = if (showPrintBed) "Placa PEI: ON" else "Placa PEI: OFF",
+        MinimalCircleIconButton(
+            icon = QuickActionIcon.PRINT_BED,
             isActive = showPrintBed,
             onClick = onTogglePrintBed
         )
-        FloatingPillButton(
-            label = "Malla: ${renderMode.label}",
+        MinimalCircleIconButton(
+            icon = QuickActionIcon.WIREFRAME,
             isActive = renderMode != MeshRenderMode.SOLID,
             onClick = onCycleRenderMode
         )
-        FloatingPillButton(
-            label = "Voladizos >45°",
+        MinimalCircleIconButton(
+            icon = QuickActionIcon.OVERHANG,
             isActive = overhangInspector,
             activeColor = OverhangAlertRed,
             onClick = onToggleOverhang
         )
-        FloatingPillButton(
-            label = "Corte Z",
+        MinimalCircleIconButton(
+            icon = QuickActionIcon.CLIPPING,
             isActive = clippingEnabled,
             onClick = onToggleClipping
         )
-        FloatingPillButton(
-            label = "Centrar Vista",
+        MinimalCircleIconButton(
+            icon = QuickActionIcon.RESET_CAMERA,
             isActive = false,
             onClick = onResetCamera
         )
@@ -703,38 +698,82 @@ private fun FloatingActionPillsRow(
 }
 
 @Composable
-private fun FloatingPillButton(
-    label: String,
+private fun MinimalCircleIconButton(
+    icon: QuickActionIcon,
     isActive: Boolean,
     activeColor: Color = BambuGreenPrimary,
     onClick: () -> Unit
 ) {
-    val bgColor = if (isActive) activeColor.copy(alpha = 0.24f) else BambuGlassSurface
+    val bgColor = if (isActive) activeColor.copy(alpha = 0.26f) else BambuGlassSurface.copy(alpha = 0.72f)
     val borderColor = if (isActive) activeColor else BambuBorderSubtle
-    val textColor = if (isActive) Color.White else BambuTextSecondary
+    val iconColor = if (isActive) Color.White else BambuTextSecondary
 
     Surface(
         color = bgColor,
-        shape = RoundedCornerShape(20.dp),
+        shape = CircleShape,
         border = BorderStroke(1.dp, borderColor),
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(if (isActive) activeColor else BambuTextMuted)
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = textColor
-            )
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Canvas(modifier = Modifier.size(16.dp)) {
+                val w = size.width
+                val h = size.height
+                val s = 1.6.dp.toPx()
+
+                when (icon) {
+                    QuickActionIcon.PRINT_BED -> {
+                        // Icono de cuadrícula / cama PEI
+                        drawRoundRect(
+                            color = iconColor,
+                            topLeft = Offset(w * 0.1f, h * 0.1f),
+                            size = Size(w * 0.8f, h * 0.8f),
+                            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
+                            style = Stroke(width = s)
+                        )
+                        drawLine(iconColor, Offset(w * 0.5f, h * 0.1f), Offset(w * 0.5f, h * 0.9f), s)
+                        drawLine(iconColor, Offset(w * 0.1f, h * 0.5f), Offset(w * 0.9f, h * 0.5f), s)
+                    }
+                    QuickActionIcon.WIREFRAME -> {
+                        // Icono de malla triangular
+                        val path = Path().apply {
+                            moveTo(w * 0.5f, h * 0.1f)
+                            lineTo(w * 0.9f, h * 0.85f)
+                            lineTo(w * 0.1f, h * 0.85f)
+                            close()
+                        }
+                        drawPath(path, color = iconColor, style = Stroke(width = s, join = StrokeJoin.Round))
+                        drawLine(iconColor, Offset(w * 0.5f, h * 0.1f), Offset(w * 0.5f, h * 0.85f), s * 0.85f)
+                    }
+                    QuickActionIcon.OVERHANG -> {
+                        // Icono de ángulo de voladizo
+                        drawLine(iconColor, Offset(w * 0.15f, h * 0.85f), Offset(w * 0.85f, h * 0.85f), s, StrokeCap.Round)
+                        drawLine(iconColor, Offset(w * 0.25f, h * 0.85f), Offset(w * 0.80f, h * 0.20f), s, StrokeCap.Round)
+                        drawCircle(color = if (isActive) OverhangAlertRed else iconColor, radius = 2.dp.toPx(), center = Offset(w * 0.72f, h * 0.52f))
+                    }
+                    QuickActionIcon.CLIPPING -> {
+                        // Icono de plano de corte Z
+                        drawLine(iconColor, Offset(w * 0.1f, h * 0.5f), Offset(w * 0.9f, h * 0.5f), s, StrokeCap.Round)
+                        drawRect(
+                            color = iconColor,
+                            topLeft = Offset(w * 0.22f, h * 0.5f),
+                            size = Size(w * 0.56f, h * 0.36f),
+                            style = Stroke(width = s)
+                        )
+                    }
+                    QuickActionIcon.RESET_CAMERA -> {
+                        // Icono de centrar vista (diana / mira)
+                        drawCircle(color = iconColor, radius = w * 0.34f, center = Offset(w * 0.5f, h * 0.5f), style = Stroke(width = s))
+                        drawCircle(color = iconColor, radius = 1.8.dp.toPx(), center = Offset(w * 0.5f, h * 0.5f))
+                        drawLine(iconColor, Offset(w * 0.5f, h * 0.05f), Offset(w * 0.5f, h * 0.22f), s, StrokeCap.Round)
+                        drawLine(iconColor, Offset(w * 0.5f, h * 0.78f), Offset(w * 0.5f, h * 0.95f), s, StrokeCap.Round)
+                        drawLine(iconColor, Offset(w * 0.05f, h * 0.5f), Offset(w * 0.22f, h * 0.5f), s, StrokeCap.Round)
+                        drawLine(iconColor, Offset(w * 0.78f, h * 0.5f), Offset(w * 0.95f, h * 0.5f), s, StrokeCap.Round)
+                    }
+                }
+            }
         }
     }
 }
@@ -746,6 +785,8 @@ private fun BambuModularBottomSheet(
     onToggleExpanded: () -> Unit,
     activeTab: InspectorTab,
     onSelectTab: (InspectorTab) -> Unit,
+    showPrintBed: Boolean,
+    onTogglePrintBed: (Boolean) -> Unit,
     onOpenFileClick: () -> Unit,
     onLoadSampleClick: () -> Unit,
     selectedMaterial: FilamentMaterial,
@@ -774,23 +815,23 @@ private fun BambuModularBottomSheet(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = BambuSlateSurface,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
         border = BorderStroke(1.dp, BambuBorderSubtle),
         shadowElevation = 12.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Barra de arrastre / colapso y selector de pestañas modulares
-            Column(
+            // Barra de arrastre mínima
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onToggleExpanded() }
-                    .padding(top = 8.dp, bottom = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(top = 6.dp, bottom = 2.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .width(42.dp)
-                        .height(4.dp)
+                        .width(36.dp)
+                        .height(3.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(BambuBorderSubtle)
                 )
@@ -800,7 +841,7 @@ private fun BambuModularBottomSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 InspectorTab.entries.forEach { tab ->
@@ -814,7 +855,9 @@ private fun BambuModularBottomSheet(
                             .clip(RoundedCornerShape(8.dp))
                             .background(bg)
                             .clickable {
-                                if (activeTab == tab) {
+                                if (!isExpanded) {
+                                    onSelectTab(tab)
+                                } else if (activeTab == tab) {
                                     onToggleExpanded()
                                 } else {
                                     onSelectTab(tab)
@@ -834,7 +877,7 @@ private fun BambuModularBottomSheet(
                 }
             }
 
-            // Contenido retraíble del Bottom Sheet
+            // Contenido retraíble del Bottom Sheet (desplegado solo al tocar una pestaña)
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically(),
@@ -843,7 +886,7 @@ private fun BambuModularBottomSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 270.dp)
+                        .heightIn(max = 260.dp)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
@@ -851,6 +894,8 @@ private fun BambuModularBottomSheet(
                         InspectorTab.MODEL -> ModelTabContent(
                             uiState = uiState,
                             modelTransform = modelTransform,
+                            showPrintBed = showPrintBed,
+                            onTogglePrintBed = onTogglePrintBed,
                             onOpenFileClick = onOpenFileClick,
                             onLoadSampleClick = onLoadSampleClick
                         )
@@ -897,6 +942,8 @@ private fun BambuModularBottomSheet(
 private fun ModelTabContent(
     uiState: UiState,
     modelTransform: ModelTransform,
+    showPrintBed: Boolean,
+    onTogglePrintBed: (Boolean) -> Unit,
     onOpenFileClick: () -> Unit,
     onLoadSampleClick: () -> Unit
 ) {
@@ -904,6 +951,40 @@ private fun ModelTabContent(
         val mesh = uiState.mesh
         val tBounds = MeshMath.computeTransformedBounds(mesh.boundingBox, modelTransform)
         val fitsPlate = tBounds.widthX <= 256f && tBounds.depthY <= 256f && tBounds.heightZ <= 256f
+
+        // Resumen compacto del archivo activo y conteo de triángulos
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = mesh.fileName,
+                style = MaterialTheme.typography.titleSmall,
+                color = BambuTextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TechnicalBadge(
+                    text = mesh.formatBadge,
+                    backgroundColor = BambuGreenDim,
+                    contentColor = BambuGreenBright
+                )
+                Text(
+                    text = String.format(Locale.US, "%,d tris", mesh.triangleCount),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BambuTextSecondary
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -951,7 +1032,29 @@ private fun ModelTabContent(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Resumen de topología y acciones de archivo
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Mostrar Placa PEI (256×256 mm)",
+                style = MaterialTheme.typography.bodySmall,
+                color = BambuTextSecondary
+            )
+            Switch(
+                checked = showPrintBed,
+                onCheckedChange = onTogglePrintBed,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = BambuGreenPrimary
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Acciones de archivo
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -975,33 +1078,6 @@ private fun ModelTabContent(
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Pieza Calibración", color = BambuTextPrimary)
-            }
-        }
-    } else {
-        Text(
-            text = "Ningún modelo cargado actualmente. Abre un archivo .STL o .3MF desde tu almacenamiento o carga la pieza de calibración integrada.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onOpenFileClick,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = BambuGreenPrimary,
-                    contentColor = Color(0xFF041F0C)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Cargar STL / 3MF", fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
-                onClick = onLoadSampleClick,
-                border = BorderStroke(1.dp, BambuBorderSubtle),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Probar Calibración", color = BambuTextPrimary)
             }
         }
     }
@@ -1655,32 +1731,6 @@ private fun TechnicalBadge(
             style = MaterialTheme.typography.labelSmall,
             color = contentColor,
             fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun CompactActionButton(
-    text: String,
-    isPrimary: Boolean,
-    onClick: () -> Unit
-) {
-    val bg = if (isPrimary) BambuGreenPrimary else BambuSlateElevated
-    val fg = if (isPrimary) Color(0xFF041F0C) else BambuTextPrimary
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(bg)
-            .border(1.dp, if (isPrimary) BambuGreenBright else BambuBorderSubtle, RoundedCornerShape(6.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = fg
         )
     }
 }

@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                 val openDocumentLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.OpenDocument()
                 ) { uri ->
-                    uri?.let { viewModel.loadStlFromUri(contentResolver, it) }
+                    uri?.let { viewModel.loadStlFromUri(applicationContext, it) }
                 }
 
                 StlViewerScreen(
@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_VIEW) {
             intent.data?.let { uri ->
-                viewModel.loadStlFromUri(contentResolver, uri)
+                viewModel.loadStlFromUri(applicationContext, uri)
             }
         }
     }

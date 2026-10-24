@@ -1,6 +1,6 @@
 package com.ministl.viewer.ui
 
-import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,13 +34,14 @@ class MainViewModel : ViewModel() {
     private var parseJob: Job? = null
     private var analysisJob: Job? = null
 
-    fun loadStlFromUri(contentResolver: ContentResolver, uri: Uri) {
+    fun loadStlFromUri(context: Context, uri: Uri) {
+        val appContext = context.applicationContext
         parseJob?.cancel()
         analysisJob?.cancel()
         parseJob = viewModelScope.launch {
             _uiState.value = UiState.Loading(0f)
             try {
-                val mesh = ModelLoader.load(contentResolver, uri) { progress ->
+                val mesh = ModelLoader.load(appContext, uri) { progress ->
                     _uiState.value = UiState.Loading(progress)
                 }
                 _uiState.value = UiState.Success(mesh = mesh, analysis = null, isAnalyzing = true)
