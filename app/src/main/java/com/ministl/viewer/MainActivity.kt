@@ -40,8 +40,18 @@ class MainActivity : ComponentActivity() {
                 StlViewerScreen(
                     uiState = uiState,
                     onOpenFileClick = {
-                        // Acepta tipos MIME de STL o binarios genéricos sin pedir permisos de almacenamiento
-                        openDocumentLauncher.launch(arrayOf("*/*"))
+                        // Acepta tipos MIME de STL, 3MF y binarios sin pedir permisos de almacenamiento
+                        openDocumentLauncher.launch(
+                            arrayOf(
+                                "model/stl",
+                                "model/3mf",
+                                "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+                                "application/sla",
+                                "application/vnd.ms-pki.stl",
+                                "application/octet-stream",
+                                "*/*"
+                            )
+                        )
                     },
                     onLoadSampleClick = {
                         viewModel.loadSampleCalibrationMesh()

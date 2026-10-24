@@ -9,7 +9,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.ministl.viewer"
+        applicationId = "com.rabbit3d.viewer"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -17,6 +17,15 @@ android {
 
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "release-key.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "Rabbit3DPass2026"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "rabbit3d"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "Rabbit3DPass2026"
         }
     }
 
@@ -28,7 +37,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.ministl.viewer.model.MeshAnalysis
 import com.ministl.viewer.model.ModelTransform
 import com.ministl.viewer.model.StlMesh
-import com.ministl.viewer.parser.StlParser
+import com.ministl.viewer.parser.ModelLoader
 import com.ministl.viewer.util.MeshMath
 import com.ministl.viewer.util.calculatePhysicalProperties
 import kotlinx.coroutines.Job
@@ -40,13 +40,13 @@ class MainViewModel : ViewModel() {
         parseJob = viewModelScope.launch {
             _uiState.value = UiState.Loading(0f)
             try {
-                val mesh = StlParser.parse(contentResolver, uri) { progress ->
+                val mesh = ModelLoader.load(contentResolver, uri) { progress ->
                     _uiState.value = UiState.Loading(progress)
                 }
                 _uiState.value = UiState.Success(mesh = mesh, analysis = null, isAnalyzing = true)
                 recomputeAnalysis(mesh, ModelTransform(), 45f)
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.localizedMessage ?: "Error al procesar el archivo STL")
+                _uiState.value = UiState.Error(e.localizedMessage ?: "Error al procesar el archivo STL / 3MF")
             }
         }
     }

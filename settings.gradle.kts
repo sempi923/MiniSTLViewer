@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MiniSTLViewer"
+rootProject.name = "Rabbit3D Viewer"
 include(":app")

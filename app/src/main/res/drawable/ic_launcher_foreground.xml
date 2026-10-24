@@ -4,14 +4,130 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Cubo isométrico 3D estilizado -->
+
+    <!-- Halo Geométrico Hexagonal Técnico (Dentro de zona segura 66x66dp) -->
     <path
-        android:fillColor="#61B8FA"
-        android:pathData="M54,26 L80,41 L54,56 L28,41 Z" />
+        android:fillColor="#161A20"
+        android:strokeColor="#2A303B"
+        android:strokeWidth="0.8"
+        android:pathData="M54,22 L81,38 L81,70 L54,86 L27,70 L27,38 Z" />
+
+    <!-- OREJA IZQUIERDA (Facetas Low-Poly) -->
     <path
-        android:fillColor="#2979FF"
-        android:pathData="M28,41 L54,56 L54,84 L28,69 Z" />
+        android:fillColor="#1A241E"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.25"
+        android:strokeLineJoin="round"
+        android:pathData="M37,25 L32,39 L38,51 L44,36 Z" />
     <path
-        android:fillColor="#1565C0"
-        android:pathData="M54,56 L80,41 L80,69 L54,84 Z" />
+        android:fillColor="#00AE42"
+        android:fillAlpha="0.32"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.15"
+        android:strokeLineJoin="round"
+        android:pathData="M37,25 L44,36 L47,48 L38,51 Z" />
+
+    <!-- OREJA DERECHA (Facetas Low-Poly) -->
+    <path
+        android:fillColor="#1A241E"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.25"
+        android:strokeLineJoin="round"
+        android:pathData="M71,25 L76,39 L70,51 L64,36 Z" />
+    <path
+        android:fillColor="#00AE42"
+        android:fillAlpha="0.32"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.15"
+        android:strokeLineJoin="round"
+        android:pathData="M71,25 L64,36 L61,48 L70,51 Z" />
+
+    <!-- FRENTE Y CORONA CENTRAL -->
+    <path
+        android:fillColor="#20262F"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round"
+        android:pathData="M38,51 L47,48 L54,45 L54,60 Z" />
+    <path
+        android:fillColor="#272E39"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round"
+        android:pathData="M70,51 L61,48 L54,45 L54,60 Z" />
+
+    <!-- PÓMULOS Y MEJILLAS GEOMÉTRICAS -->
+    <path
+        android:fillColor="#181D24"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round"
+        android:pathData="M38,51 L31,61 L44,65 L54,60 Z" />
+    <path
+        android:fillColor="#1E242D"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round"
+        android:pathData="M70,51 L77,61 L64,65 L54,60 Z" />
+
+    <!-- MANDÍBULA INFERIOR LATERAL -->
+    <path
+        android:fillColor="#151920"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.15"
+        android:strokeLineJoin="round"
+        android:pathData="M31,61 L41,74 L47,72 L44,65 Z" />
+    <path
+        android:fillColor="#191E26"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.15"
+        android:strokeLineJoin="round"
+        android:pathData="M77,61 L67,74 L61,72 L64,65 Z" />
+
+    <!-- MENTÓN Y BASE DEL HOCICO -->
+    <path
+        android:fillColor="#20262F"
+        android:strokeColor="#00AE42"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round"
+        android:pathData="M41,74 L47,72 L54,77 L61,72 L67,74 L54,82 Z" />
+
+    <!-- PUENTE NASAL Y HOCICO CENTRAL (Trazos en Blanco Técnico #FFFFFF y Verde #00AE42) -->
+    <path
+        android:fillColor="#00AE42"
+        android:fillAlpha="0.28"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.15"
+        android:strokeLineJoin="round"
+        android:pathData="M54,60 L44,65 L47,72 L54,73 Z" />
+    <path
+        android:fillColor="#00AE42"
+        android:fillAlpha="0.45"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.15"
+        android:strokeLineJoin="round"
+        android:pathData="M54,60 L64,65 L61,72 L54,73 Z" />
+
+    <!-- NARIZ POLIGONAL 3D -->
+    <path
+        android:fillColor="#00AE42"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.25"
+        android:strokeLineJoin="round"
+        android:pathData="M49,71 L59,71 L54,77 Z" />
+
+    <!-- OJOS TÉCNICOS ANGULARES (#FFFFFF) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,57.5 L45.5,56.5 L42.5,60.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,57.5 L62.5,56.5 L65.5,60.5 Z" />
+
+    <!-- ARISTAS CENTRALES DE SIMETRÍA Y VÉRTICES CAD EN BLANCO TÉCNICO (#FFFFFF) -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M54,45 L54,71 M37,25 L44,36 M71,25 L64,36" />
 </vector>

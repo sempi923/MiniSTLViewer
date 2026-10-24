@@ -82,9 +82,10 @@ fun StlViewerScreen(
     var camPitchX by remember { mutableFloatStateOf(CameraPreset.ISO.pitchX) }
     var camYawZ by remember { mutableFloatStateOf(CameraPreset.ISO.yawZ) }
 
-    // Estado del Bottom Sheet modular
+    // Estado del Bottom Sheet modular y diálogo de privacidad
     var isSheetExpanded by remember { mutableStateOf(true) }
     var activeTab by remember { mutableStateOf(InspectorTab.MODEL) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
 
     fun syncRendererAndRedraw() {
         glSurfaceViewRef?.let { glView ->
@@ -170,6 +171,7 @@ fun StlViewerScreen(
                 uiState = uiState,
                 onOpenFileClick = onOpenFileClick,
                 onLoadSampleClick = onLoadSampleClick,
+                onPrivacyInfoClick = { showPrivacyDialog = true },
                 modifier = Modifier.weight(1f, fill = false)
             )
 
@@ -196,6 +198,7 @@ fun StlViewerScreen(
                 EmptyWorkspacePrompt(
                     onOpenFileClick = onOpenFileClick,
                     onLoadSampleClick = onLoadSampleClick,
+                    onPrivacyInfoClick = { showPrivacyDialog = true },
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(horizontal = 24.dp)
@@ -345,6 +348,10 @@ fun StlViewerScreen(
                 }
             )
         }
+
+        if (showPrivacyDialog) {
+            AboutPrivacyDialog(onDismiss = { showPrivacyDialog = false })
+        }
     }
 }
 
@@ -353,6 +360,7 @@ private fun TopTechnicalHeader(
     uiState: UiState,
     onOpenFileClick: () -> Unit,
     onLoadSampleClick: () -> Unit,
+    onPrivacyInfoClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -373,9 +381,15 @@ private fun TopTechnicalHeader(
                         .background(BambuGreenBright)
                 )
                 Text(
-                    text = "BAMBU STUDIO // STL",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = "Rabbit3D Viewer",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
                     color = BambuGreenBright
+                )
+                Text(
+                    text = "• STL / 3MF",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BambuTextSecondary
                 )
             }
 
@@ -395,7 +409,7 @@ private fun TopTechnicalHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TechnicalBadge(
-                        text = if (mesh.isBinary) "BIN" else "ASCII",
+                        text = mesh.formatBadge,
                         backgroundColor = BambuGreenDim,
                         contentColor = BambuGreenBright
                     )
@@ -415,9 +429,12 @@ private fun TopTechnicalHeader(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 CompactActionButton(
-                    text = "Abrir .STL",
+                    text = "Cargar STL / 3MF",
                     isPrimary = true,
                     onClick = onOpenFileClick
                 )
@@ -425,6 +442,11 @@ private fun TopTechnicalHeader(
                     text = "Pieza Test",
                     isPrimary = false,
                     onClick = onLoadSampleClick
+                )
+                CompactActionButton(
+                    text = "ⓘ Privacidad",
+                    isPrimary = false,
+                    onClick = onPrivacyInfoClick
                 )
             }
         }
@@ -944,7 +966,7 @@ private fun ModelTabContent(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Cargar otro .STL", fontWeight = FontWeight.Bold)
+                Text("Cargar STL / 3MF", fontWeight = FontWeight.Bold)
             }
             OutlinedButton(
                 onClick = onLoadSampleClick,
@@ -957,7 +979,7 @@ private fun ModelTabContent(
         }
     } else {
         Text(
-            text = "Ningún archivo STL cargado actualmente. Abre un modelo 3D desde tu almacenamiento o carga la pieza de calibración integrada.",
+            text = "Ningún modelo cargado actualmente. Abre un archivo .STL o .3MF desde tu almacenamiento o carga la pieza de calibración integrada.",
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -971,7 +993,7 @@ private fun ModelTabContent(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Cargar archivo .STL", fontWeight = FontWeight.Bold)
+                Text("Cargar STL / 3MF", fontWeight = FontWeight.Bold)
             }
             OutlinedButton(
                 onClick = onLoadSampleClick,
@@ -1231,7 +1253,7 @@ private fun AnalysisTabContent(
     } else {
         Text(
             text = if (successState?.isAnalyzing == true) "Calculando integración de tetraedros..."
-            else "Carga un modelo STL para calcular volumen, área, peso y costo.",
+            else "Carga un modelo STL / 3MF para calcular volumen, área, peso y costo.",
             style = MaterialTheme.typography.bodySmall
         )
     }
@@ -1714,6 +1736,7 @@ private fun AxisRotationButton(
 private fun EmptyWorkspacePrompt(
     onOpenFileClick: () -> Unit,
     onLoadSampleClick: () -> Unit,
+    onPrivacyInfoClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -1727,18 +1750,18 @@ private fun EmptyWorkspacePrompt(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             TechnicalBadge(
-                text = "MANUFACTURA ADITIVA // OPENGL ES 2.0",
+                text = "MANUFACTURA ADITIVA // STL & 3MF // OPENGL ES 2.0",
                 backgroundColor = BambuGreenDim,
                 contentColor = BambuGreenBright
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "MiniSTL Studio",
+                text = "Rabbit3D Viewer",
                 style = MaterialTheme.typography.titleLarge
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Importa un archivo .STL (Binario o ASCII) para analizar volumen, peso de filamento, cortes transversales Z y ángulos de voladizo.",
+                text = "Importa un archivo .STL (Binario o ASCII) o .3MF para analizar volumen, peso de filamento, cortes transversales Z y ángulos de voladizo.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = BambuTextSecondary
             )
@@ -1752,7 +1775,7 @@ private fun EmptyWorkspacePrompt(
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Cargar archivo .STL", fontWeight = FontWeight.Bold)
+                    Text("Cargar STL / 3MF", fontWeight = FontWeight.Bold)
                 }
                 OutlinedButton(
                     onClick = onLoadSampleClick,
@@ -1762,6 +1785,16 @@ private fun EmptyWorkspacePrompt(
                     Text("Pieza de Calibración", color = BambuTextPrimary)
                 }
             }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Acerca de / Privacidad: Procesamiento 100% local sin recopilación de datos",
+                style = MaterialTheme.typography.labelSmall,
+                color = BambuTextMuted,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable(onClick = onPrivacyInfoClick)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
         }
     }
 }
@@ -1783,7 +1816,7 @@ private fun LoadingProgressCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "PROCESANDO GEOMETRÍA STL... $pct%",
+                text = "PROCESANDO GEOMETRÍA 3D (STL / 3MF)... $pct%",
                 style = MaterialTheme.typography.titleSmall,
                 color = BambuGreenBright
             )
@@ -1819,7 +1852,7 @@ private fun ErrorDiagnosticCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "ERROR DE LECTURA STL",
+                text = "ERROR DE LECTURA STL / 3MF",
                 style = MaterialTheme.typography.titleSmall,
                 color = OverhangAlertRed
             )
@@ -1835,7 +1868,7 @@ private fun ErrorDiagnosticCard(
                     onClick = onRetryClick,
                     colors = ButtonDefaults.buttonColors(containerColor = OverhangAlertRed)
                 ) {
-                    Text("Reintentar", color = Color.White)
+                    Text("Cargar STL / 3MF", color = Color.White)
                 }
                 OutlinedButton(
                     onClick = onSampleClick,
@@ -1846,4 +1879,65 @@ private fun ErrorDiagnosticCard(
             }
         }
     }
+}
+
+@Composable
+private fun AboutPrivacyDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BambuSlateSurface,
+        titleContentColor = BambuTextPrimary,
+        textContentColor = BambuTextSecondary,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(BambuGreenBright)
+                )
+                Text(
+                    text = "Acerca de Rabbit3D Viewer",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TechnicalBadge(
+                    text = "VERSIÓN 1.0.0 • STL & 3MF CAD ENGINE",
+                    backgroundColor = BambuGreenDim,
+                    contentColor = BambuGreenBright
+                )
+                Text(
+                    text = "Rabbit3D Viewer procesa los modelos 3D 100% de forma local en el dispositivo y no recopila ni comparte datos personales.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = BambuTextPrimary,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "• Sin servidores externos ni telemetría.\n• Acceso a archivos exclusivamente bajo selección del usuario (Storage Access Framework).\n• Soporte nativo para mallas .STL (Binario/ASCII) y contenedores .3MF.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BambuTextSecondary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BambuGreenPrimary,
+                    contentColor = Color(0xFF041F0C)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Entendido", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }

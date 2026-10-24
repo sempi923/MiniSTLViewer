@@ -4,7 +4,32 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Fondo Grafito Técnico Principal (#121316) -->
     <path
-        android:fillColor="#121824"
+        android:fillColor="#121316"
         android:pathData="M0,0h108v108h-108z" />
+
+    <!-- Placa PEI Central Oscura Sutil -->
+    <path
+        android:fillColor="#17191E"
+        android:pathData="M18,18 L90,18 L90,90 L18,90 Z" />
+
+    <!-- Cuadrícula Técnica CAD Sutil -->
+    <path
+        android:strokeColor="#1F232B"
+        android:strokeWidth="0.65"
+        android:pathData="M0,18 L108,18 M0,30 L108,30 M0,42 L108,42 M0,54 L108,54 M0,66 L108,66 M0,78 L108,78 M0,90 L108,90 M18,0 L18,108 M30,0 L30,108 M42,0 L42,108 M54,0 L54,108 M66,0 L66,108 M78,0 L78,108 M90,0 L90,108" />
+
+    <!-- Líneas de Ejes Centrales y Diagonales de Referencia -->
+    <path
+        android:strokeColor="#262B35"
+        android:strokeWidth="0.9"
+        android:pathData="M0,54 L108,54 M54,0 L54,108" />
+
+    <!-- Esquinas de Calibración en Verde Industrial Atenuado -->
+    <path
+        android:strokeColor="#004D1D"
+        android:strokeWidth="1.2"
+        android:pathData="M24,30 L24,24 L30,24 M78,24 L84,24 L84,30 M24,78 L24,84 L30,84 M78,84 L84,84 L84,78" />
 </vector>

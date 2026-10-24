@@ -42,6 +42,17 @@ object StlParser {
             val bytesRead = readFully(stream, headerBytes, 84)
             stream.reset()
 
+            // Detectar si es un contenedor .3MF por extensión o firma mágica ZIP (PK\x03\x04)
+            val isZipMagic = bytesRead >= 4 &&
+                headerBytes[0] == 0x50.toByte() &&
+                headerBytes[1] == 0x4B.toByte() &&
+                headerBytes[2] == 0x03.toByte() &&
+                headerBytes[3] == 0x04.toByte()
+
+            if (isZipMagic || fileName.endsWith(".3mf", ignoreCase = true)) {
+                return@withContext ThreeMfParser.parseFromStream(stream, fileName, onProgress)
+            }
+
             val isBinary = isBinaryStl(headerBytes, bytesRead, fileSize)
             val mesh = if (isBinary) {
                 parseBinary(stream, fileName, onProgress)
@@ -50,7 +61,7 @@ object StlParser {
             }
             onProgress(1.0f)
             mesh
-        } ?: throw IllegalArgumentException("No se pudo abrir el archivo STL.")
+        } ?: throw IllegalArgumentException("No se pudo abrir el archivo STL / 3MF.")
     }
 
     private fun resolveFileName(contentResolver: ContentResolver, uri: Uri): String {

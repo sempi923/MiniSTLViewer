@@ -162,5 +162,6 @@ data class StlMesh(
     val triangleCount: Int,
     val boundingBox: BoundingBox,
     val isBinary: Boolean,
-    val fileName: String = "Modelo.stl"
+    val fileName: String = "Modelo.stl",
+    val formatBadge: String = if (isBinary) "BIN" else "ASCII"
 )
