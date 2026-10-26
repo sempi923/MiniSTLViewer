@@ -508,6 +508,7 @@ private fun MinimalTopBar(
         }
     }
 }
+}
 
 /**
  * Círculo del gizmo XYZ flotante (56dp) sin tarjeta ni fondo pesado;
@@ -846,6 +847,7 @@ private fun MinimalCircleIconButton(
             }
         }
     }
+}
 }
 
 @Composable
