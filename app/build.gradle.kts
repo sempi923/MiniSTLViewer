@@ -22,10 +22,18 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "release-key.jks")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "Rabbit3DPass2026"
-            keyAlias = System.getenv("KEY_ALIAS") ?: "rabbit3d"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: "Rabbit3DPass2026"
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "release-key.jks"
+            val keystorePass = System.getenv("KEYSTORE_PASSWORD")
+            val keyAliasStr = System.getenv("KEY_ALIAS")
+            val keyPass = System.getenv("KEY_PASSWORD")
+
+            val keystoreFile = file(keystorePath)
+            if (keystoreFile.exists() && !keystorePass.isNullOrBlank() && !keyAliasStr.isNullOrBlank() && !keyPass.isNullOrBlank()) {
+                storeFile = keystoreFile
+                storePassword = keystorePass
+                keyAlias = keyAliasStr
+                keyPassword = keyPass
+            }
         }
     }
 
@@ -37,7 +45,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+                signingConfig = releaseSigning
+            }
         }
     }
 

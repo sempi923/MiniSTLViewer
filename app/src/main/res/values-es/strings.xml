@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rabbit3D Viewer</string>
+
+    <!-- Navegación y Pestañas -->
+    <string name="tab_model">Modelo</string>
+    <string name="tab_material">Materiales</string>
+    <string name="tab_analysis">Análisis</string>
+    <string name="tab_transform">Transformar</string>
+
+    <!-- Acciones y Botones -->
+    <string name="action_open_file">Cargar STL / 3MF</string>
+    <string name="action_load_sample">Pieza Calibración</string>
+    <string name="action_understood">Entendido</string>
+    <string name="action_reset_view">Centrar Vista</string>
+    <string name="action_lay_flat">Apoyar en Cama</string>
+
+    <!-- Accesibilidad / TalkBack -->
+    <string name="cd_open_file">Abrir archivo 3D STL o 3MF</string>
+    <string name="cd_toggle_bed">Alternar visualización de la cama de impresión</string>
+    <string name="cd_toggle_wireframe">Alternar modo de malla y alambre</string>
+    <string name="cd_toggle_overhang">Alternar inspector de voladizos mayores a 45 grados</string>
+    <string name="cd_toggle_clipping">Alternar plano de corte transversal</string>
+    <string name="cd_reset_camera">Centrar cámara y restablecer orientación</string>
+    <string name="cd_gizmo">Gizmo de orientación 3D. Toca para alternar vistas</string>
+    <string name="cd_color_swatch">Seleccionar color %1$s</string>
+
+    <!-- Estado Vacío -->
+    <string name="empty_title">Visualizador CAD 3D Ultrarrápido</string>
+    <string name="empty_subtitle">Abre archivos .STL (ASCII o Binario) y proyectos .3MF generados por cualquier laminador 3D.</string>
+    <string name="empty_privacy_badge">100% OFFLINE • CERO DATOS RECOPILADOS</string>
+
+    <!-- Carga y Error -->
+    <string name="loading_title">PROCESANDO GEOMETRÍA 3D</string>
+    <string name="error_title">ERROR AL PROCESAR ARCHIVO</string>
+
+    <!-- Secciones del Inspector -->
+    <string name="section_dimensions">DIMENSIONES FÍSICAS (MM)</string>
+    <string name="section_filament_preset">PRESET DE FILAMENTO INDUSTRIAL</string>
+    <string name="section_color">COLOR: %1$s</string>
+    <string name="section_wireframe_width">GROSOR ALAMBRE: %1$.1f PX</string>
+    <string name="section_clipping">PLANO DE CORTE TRANSVERSAL</string>
+    <string name="section_overhang">INSPECTOR DE VOLADIZOS (&gt; 45°)</string>
+    <string name="section_transform">TRANSFORMACIONES DEL MODELO</string>
+    <string name="label_density">%1$.2f g/cm³</string>
+    <string name="label_price">PRECIO FILAMENTO (€/KG)</string>
+    <string name="label_volume">VOLUMEN</string>
+    <string name="label_surface">SUPERFICIE</string>
+    <string name="label_mass">PESO ESTIMADO</string>
+    <string name="label_cost">COSTE ESTIMADO</string>
+    <string name="label_scale">ESCALA UNIFORME: %1$.2fX</string>
+    <string name="label_rot_x">ROTACIÓN EJE X: %1$d°</string>
+    <string name="label_rot_y">Y ROTACIÓN: %1$d°</string>
+    <string name="label_rot_z">ROTACIÓN EJE Z: %1$d°</string>
+
+    <!-- Diálogo Acerca de -->
+    <string name="about_title">Acerca de Rabbit3D Viewer</string>
+    <string name="about_version">VERSIÓN 1.0.0 • STL &amp; 3MF CAD ENGINE</string>
+    <string name="about_desc">Rabbit3D Viewer procesa los modelos 3D 100% de forma local en el dispositivo y no recopila ni comparte datos personales.</string>
+    <string name="about_bullet1">• 100% offline y sin permiso de red (INTERNET).</string>
+    <string name="about_bullet2">• Acceso a archivos exclusivamente mediante Storage Access Framework.</string>
+    <string name="about_bullet3">• Cumplimiento estricto con la Política de Privacidad de Google Play.</string>
+</resources>

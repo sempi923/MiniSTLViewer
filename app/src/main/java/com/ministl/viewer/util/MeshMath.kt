@@ -176,7 +176,7 @@ object MeshMath {
     }
 
     /**
-     * Genera un modelo 3D de calibración estilo Bambu Lab (Puente de Prueba de Voladizos + Torre)
+     * Genera un modelo 3D de calibración técnico (Puente de Prueba de Voladizos + Torre)
      * para permitir probar inmediatamente todos los shaders, cortes Z y cálculos métricos.
      */
     fun generateCalibrationArchMesh(): StlMesh {
@@ -293,7 +293,7 @@ object MeshMath {
             triangleCount = triCount,
             boundingBox = BoundingBox(minX, maxX, minY, maxY, minZ, maxZ),
             isBinary = true,
-            fileName = "Bambu_Overhang_Calibration.stl"
+            fileName = "Rabbit3D_Overhang_Calibration.stl"
         )
     }
 }

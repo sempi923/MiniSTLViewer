@@ -57,7 +57,7 @@ object StlParser {
 
             val isBinary = isBinaryStl(headerBytes, bytesRead, fileSize)
             val mesh = if (isBinary) {
-                parseBinary(stream, fileName, onProgress)
+                parseBinary(stream, fileSize, fileName, onProgress)
             } else {
                 parseAscii(stream, fileSize, fileName, onProgress)
             }
@@ -106,6 +106,7 @@ object StlParser {
 
     private suspend fun parseBinary(
         stream: InputStream,
+        fileSize: Long,
         fileName: String,
         onProgress: (Float) -> Unit
     ): StlMesh {
@@ -115,7 +116,19 @@ object StlParser {
         }
 
         val rawTriCount = ByteBuffer.wrap(header, 80, 4).order(ByteOrder.LITTLE_ENDIAN).int
-        val triCount = rawTriCount.coerceIn(1, MAX_TRIANGLES)
+        if (rawTriCount <= 0) {
+            throw IllegalArgumentException("El archivo STL binario no declara triángulos válidos.")
+        }
+
+        // Proteger contra archivos corruptos que declaran millones de triángulos con un tamaño físico insuficiente
+        val maxPossibleTriangles = if (fileSize > 84L) {
+            ((fileSize - 84L) / 50L).coerceAtMost(MAX_TRIANGLES.toLong()).toInt()
+        } else {
+            MAX_TRIANGLES
+        }
+        val triCount = rawTriCount.toLong()
+            .coerceIn(1L, maxPossibleTriangles.coerceAtLeast(1).toLong())
+            .toInt()
 
         val floatCount = triCount * 9 // 3 vértices * 3 coordenadas (x,y,z)
         val vertexBuffer = allocateDirectFloatBuffer(floatCount)
@@ -185,6 +198,10 @@ object StlParser {
             onProgress((trianglesRead.toFloat() / triCount.toFloat()).coerceIn(0.05f, 0.95f))
         }
 
+        if (trianglesRead == 0) {
+            throw IllegalArgumentException("No se pudieron leer triángulos válidos del archivo STL binario.")
+        }
+
         val rawBbox = BoundingBox(minX, maxX, minY, maxY, minZ, maxZ)
         centerMeshInPlace(vertexBuffer, trianglesRead * 9, rawBbox)
 
@@ -194,12 +211,30 @@ object StlParser {
             minZ = -rawBbox.heightZ * 0.5f, maxZ = rawBbox.heightZ * 0.5f
         )
 
-        vertexBuffer.position(0)
-        normalBuffer.position(0)
+        val (finalVertexBuffer, finalNormalBuffer) = if (trianglesRead < triCount) {
+            val exactFloats = trianglesRead * 9
+            val vBuf = allocateDirectFloatBuffer(exactFloats).apply {
+                vertexBuffer.position(0)
+                vertexBuffer.limit(exactFloats)
+                put(vertexBuffer)
+                position(0)
+            }
+            val nBuf = allocateDirectFloatBuffer(exactFloats).apply {
+                normalBuffer.position(0)
+                normalBuffer.limit(exactFloats)
+                put(normalBuffer)
+                position(0)
+            }
+            vBuf to nBuf
+        } else {
+            vertexBuffer.position(0)
+            normalBuffer.position(0)
+            vertexBuffer to normalBuffer
+        }
 
         return StlMesh(
-            vertexBuffer = vertexBuffer,
-            normalBuffer = normalBuffer,
+            vertexBuffer = finalVertexBuffer,
+            normalBuffer = finalNormalBuffer,
             triangleCount = trianglesRead,
             boundingBox = centeredBbox,
             isBinary = true,

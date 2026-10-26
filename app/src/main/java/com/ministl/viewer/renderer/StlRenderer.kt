@@ -307,19 +307,11 @@ class StlRenderer : GLSurfaceView.Renderer {
 
         val meshVShader = compileShader(GLES20.GL_VERTEX_SHADER, meshVertexShaderCode)
         val meshFShader = compileShader(GLES20.GL_FRAGMENT_SHADER, meshFragmentShaderCode)
-        meshProgramId = GLES20.glCreateProgram().also { prog ->
-            GLES20.glAttachShader(prog, meshVShader)
-            GLES20.glAttachShader(prog, meshFShader)
-            GLES20.glLinkProgram(prog)
-        }
+        meshProgramId = createProgram(meshVShader, meshFShader)
 
         val bedVShader = compileShader(GLES20.GL_VERTEX_SHADER, bedVertexShaderCode)
         val bedFShader = compileShader(GLES20.GL_FRAGMENT_SHADER, bedFragmentShaderCode)
-        bedProgramId = GLES20.glCreateProgram().also { prog ->
-            GLES20.glAttachShader(prog, bedVShader)
-            GLES20.glAttachShader(prog, bedFShader)
-            GLES20.glLinkProgram(prog)
-        }
+        bedProgramId = createProgram(bedVShader, bedFShader)
 
         initPrintBedBuffers()
         hasMeshVbos = false
@@ -652,9 +644,33 @@ class StlRenderer : GLSurfaceView.Renderer {
     }
 
     private fun compileShader(type: Int, shaderCode: String): Int {
-        return GLES20.glCreateShader(type).also { shader ->
-            GLES20.glShaderSource(shader, shaderCode)
-            GLES20.glCompileShader(shader)
+        val shader = GLES20.glCreateShader(type)
+        GLES20.glShaderSource(shader, shaderCode)
+        GLES20.glCompileShader(shader)
+        val compiled = IntArray(1)
+        GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compiled, 0)
+        if (compiled[0] == 0) {
+            val log = GLES20.glGetShaderInfoLog(shader)
+            GLES20.glDeleteShader(shader)
+            throw RuntimeException("Error al compilar shader OpenGL ($type): $log")
         }
+        return shader
+    }
+
+    private fun createProgram(vertexShader: Int, fragmentShader: Int): Int {
+        val program = GLES20.glCreateProgram()
+        GLES20.glAttachShader(program, vertexShader)
+        GLES20.glAttachShader(program, fragmentShader)
+        GLES20.glLinkProgram(program)
+        val linked = IntArray(1)
+        GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, linked, 0)
+        if (linked[0] == 0) {
+            val log = GLES20.glGetProgramInfoLog(program)
+            GLES20.glDeleteProgram(program)
+            throw RuntimeException("Error al enlazar programa OpenGL: $log")
+        }
+        GLES20.glDeleteShader(vertexShader)
+        GLES20.glDeleteShader(fragmentShader)
+        return program
     }
 }

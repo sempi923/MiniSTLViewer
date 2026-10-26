@@ -1,3 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Rabbit3D Viewer</string>
+
+    <!-- Navigation & Tabs -->
+    <string name="tab_model">Model</string>
+    <string name="tab_material">Materials</string>
+    <string name="tab_analysis">Analysis</string>
+    <string name="tab_transform">Transform</string>
+
+    <!-- Actions & Buttons -->
+    <string name="action_open_file">Load STL / 3MF</string>
+    <string name="action_load_sample">Calibration Part</string>
+    <string name="action_understood">Got it</string>
+    <string name="action_reset_view">Reset View</string>
+    <string name="action_lay_flat">Lay Flat on Bed</string>
+
+    <!-- Accessibility / TalkBack -->
+    <string name="cd_open_file">Open 3D STL or 3MF file</string>
+    <string name="cd_toggle_bed">Toggle print bed display</string>
+    <string name="cd_toggle_wireframe">Toggle wireframe and solid mode</string>
+    <string name="cd_toggle_overhang">Toggle overhang detection inspector</string>
+    <string name="cd_toggle_clipping">Toggle cross-section clipping plane</string>
+    <string name="cd_reset_camera">Reset camera view and center model</string>
+    <string name="cd_gizmo">3D orientation gizmo. Tap to switch views</string>
+    <string name="cd_color_swatch">Select color %1$s</string>
+
+    <!-- Empty State -->
+    <string name="empty_title">Ultra-Fast 3D CAD Viewer</string>
+    <string name="empty_subtitle">Open .STL (Binary / ASCII) and .3MF files created by any 3D slicer or CAD suite.</string>
+    <string name="empty_privacy_badge">100% OFFLINE • ZERO DATA COLLECTED</string>
+
+    <!-- Loading & Error -->
+    <string name="loading_title">PROCESSING 3D GEOMETRY</string>
+    <string name="error_title">ERROR PROCESSING 3D MODEL</string>
+
+    <!-- Inspector Sections -->
+    <string name="section_dimensions">PHYSICAL BOUNDS (MM)</string>
+    <string name="section_filament_preset">INDUSTRIAL FILAMENT PRESET</string>
+    <string name="section_color">COLOR: %1$s</string>
+    <string name="section_wireframe_width">WIREFRAME STROKE: %1$.1f PX</string>
+    <string name="section_clipping">CROSS-SECTION CLIPPING</string>
+    <string name="section_overhang">OVERHANG INSPECTOR (&gt; 45°)</string>
+    <string name="section_transform">MODEL TRANSFORMATIONS</string>
+    <string name="label_density">%1$.2f g/cm³</string>
+    <string name="label_price">FILAMENT PRICE ($/KG)</string>
+    <string name="label_volume">VOLUME</string>
+    <string name="label_surface">SURFACE</string>
+    <string name="label_mass">ESTIMATED MASS</string>
+    <string name="label_cost">ESTIMATED COST</string>
+    <string name="label_scale">UNIFORM SCALE: %1$.2fX</string>
+    <string name="label_rot_x">X ROTATION: %1$d°</string>
+    <string name="label_rot_y">Y ROTATION: %1$d°</string>
+    <string name="label_rot_z">Z ROTATION: %1$d°</string>
+
+    <!-- About Dialog -->
+    <string name="about_title">About Rabbit3D Viewer</string>
+    <string name="about_version">VERSION 1.0.0 • STL &amp; 3MF CAD ENGINE</string>
+    <string name="about_desc">Rabbit3D Viewer processes 3D models 100% locally on your device without collecting or sharing any personal data.</string>
+    <string name="about_bullet1">• 100% offline with no INTERNET permission.</string>
+    <string name="about_bullet2">• File access solely via Android Storage Access Framework.</string>
+    <string name="about_bullet3">• Strict compliance with Google Play Privacy and Data Safety policies.</string>
 </resources>

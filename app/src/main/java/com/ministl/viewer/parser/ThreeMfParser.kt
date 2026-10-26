@@ -26,14 +26,13 @@ import kotlin.math.sqrt
 
 /**
  * Parser nativo y ligero para archivos .3MF (3D Manufacturing Format).
- * Copia el stream a un archivo temporal en `context.cacheDir` (`temp_model.3mf`) y utiliza
- * [ZipFile] para soportar entradas con Data Descriptors generadas por Bambu Studio y OrcaSlicer,
+ * Copia el stream a un archivo temporal único en `context.cacheDir` y utiliza
+ * [ZipFile] para soportar entradas con Data Descriptors generadas por slicers modernos (PrusaSlicer, OrcaSlicer, etc.),
  * acumulando la geometría de todos los archivos `.model` (`3D/3dmodel.model` y `3D/Objects/`).
  */
 object ThreeMfParser {
 
     private const val MAX_TRIANGLES = 2_000_000
-    private const val TEMP_FILE_NAME = "temp_model.3mf"
 
     suspend fun parse(
         context: Context,
@@ -56,7 +55,7 @@ object ThreeMfParser {
         fileName: String,
         onProgress: (Float) -> Unit = {}
     ): StlMesh = withContext(Dispatchers.IO) {
-        val tempFile = File(context.cacheDir, TEMP_FILE_NAME)
+        val tempFile = File.createTempFile("model_", ".3mf", context.cacheDir)
 
         try {
             onProgress(0.08f)

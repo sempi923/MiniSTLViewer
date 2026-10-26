@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Excluir archivos y caché de versiones anteriores de Android (< Android 12) -->
+    <exclude domain="file" />
+    <exclude domain="sharedpref" />
+</full-backup-content>

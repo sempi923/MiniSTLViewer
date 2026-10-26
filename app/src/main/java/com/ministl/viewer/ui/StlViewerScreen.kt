@@ -29,7 +29,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import com.ministl.viewer.R
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +44,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ministl.viewer.model.*
 import com.ministl.viewer.renderer.StlGLSurfaceView
 import com.ministl.viewer.ui.theme.*
@@ -49,11 +58,11 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
 
-private enum class InspectorTab(val title: String) {
-    MODEL("Modelo"),
-    MATERIAL("Materiales"),
-    ANALYSIS("Análisis"),
-    TRANSFORM("Transformar")
+private enum class InspectorTab(val titleResId: Int) {
+    MODEL(R.string.tab_model),
+    MATERIAL(R.string.tab_material),
+    ANALYSIS(R.string.tab_analysis),
+    TRANSFORM(R.string.tab_transform)
 }
 
 @Composable
@@ -116,6 +125,28 @@ fun StlViewerScreen(
         }
     }
 
+    // Control de ciclo de vida para pausar y reanudar el contexto OpenGL ES 2.0 y su hilo de render
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, glSurfaceViewRef) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    glSurfaceViewRef?.onPause()
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    glSurfaceViewRef?.onResume()
+                    glSurfaceViewRef?.requestRender()
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            glSurfaceViewRef?.onPause()
+        }
+    }
+
     // Enviar la malla al hilo OpenGL cuando se cargue un nuevo modelo y mantener el panel colapsado por defecto
     LaunchedEffect(uiState) {
         if (uiState is UiState.Success) {
@@ -146,6 +177,9 @@ fun StlViewerScreen(
                     }
                     glSurfaceViewRef = glView
                 }
+            },
+            onRelease = { glView ->
+                glView.onPause()
             },
             update = { glView ->
                 val r = glView.renderer
@@ -406,18 +440,31 @@ private fun MinimalTopBar(
             )
         }
 
-        // Único botón de icono compacto (carpeta +) para cargar archivo
-        Surface(
-            color = BambuGlassSurface.copy(alpha = 0.72f),
-            shape = CircleShape,
-            border = BorderStroke(1.dp, BambuBorderSubtle),
+        // Único botón de icono compacto (carpeta +) para cargar archivo con touch target de 48dp
+        val openFileDescription = stringResource(R.string.cd_open_file)
+        Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onOpenFileClick)
+                .size(48.dp)
+                .clickable(
+                    onClick = onOpenFileClick,
+                    role = Role.Button,
+                    onClickLabel = openFileDescription
+                )
+                .semantics {
+                    contentDescription = openFileDescription
+                },
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Canvas(modifier = Modifier.size(18.dp)) {
+            Surface(
+                color = BambuGlassSurface.copy(alpha = 0.72f),
+                shape = CircleShape,
+                border = BorderStroke(1.dp, BambuBorderSubtle),
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Canvas(modifier = Modifier.size(18.dp)) {
                     val w = size.width
                     val h = size.height
                     val strokeW = 1.7.dp.toPx()
@@ -473,11 +520,16 @@ private fun FloatingOrientationGizmo(
     onTapGizmo: (CameraPreset?) -> Unit
 ) {
     val textMeasurer = rememberTextMeasurer()
+    val gizmoDescription = stringResource(R.string.cd_gizmo)
 
     Box(
         modifier = Modifier
             .size(56.dp)
             .clip(CircleShape)
+            .semantics {
+                contentDescription = gizmoDescription
+                role = Role.Button
+            }
             .pointerInput(pitchX, yawZ) {
                 detectTapGestures { offset ->
                     val cx = size.width * 0.5f
@@ -671,27 +723,32 @@ private fun FloatingActionPillsRow(
         MinimalCircleIconButton(
             icon = QuickActionIcon.PRINT_BED,
             isActive = showPrintBed,
+            contentDescription = stringResource(R.string.cd_toggle_bed),
             onClick = onTogglePrintBed
         )
         MinimalCircleIconButton(
             icon = QuickActionIcon.WIREFRAME,
             isActive = renderMode != MeshRenderMode.SOLID,
+            contentDescription = stringResource(R.string.cd_toggle_wireframe),
             onClick = onCycleRenderMode
         )
         MinimalCircleIconButton(
             icon = QuickActionIcon.OVERHANG,
             isActive = overhangInspector,
             activeColor = OverhangAlertRed,
+            contentDescription = stringResource(R.string.cd_toggle_overhang),
             onClick = onToggleOverhang
         )
         MinimalCircleIconButton(
             icon = QuickActionIcon.CLIPPING,
             isActive = clippingEnabled,
+            contentDescription = stringResource(R.string.cd_toggle_clipping),
             onClick = onToggleClipping
         )
         MinimalCircleIconButton(
             icon = QuickActionIcon.RESET_CAMERA,
             isActive = false,
+            contentDescription = stringResource(R.string.cd_reset_camera),
             onClick = onResetCamera
         )
     }
@@ -701,6 +758,7 @@ private fun FloatingActionPillsRow(
 private fun MinimalCircleIconButton(
     icon: QuickActionIcon,
     isActive: Boolean,
+    contentDescription: String,
     activeColor: Color = BambuGreenPrimary,
     onClick: () -> Unit
 ) {
@@ -708,17 +766,29 @@ private fun MinimalCircleIconButton(
     val borderColor = if (isActive) activeColor else BambuBorderSubtle
     val iconColor = if (isActive) Color.White else BambuTextSecondary
 
-    Surface(
-        color = bgColor,
-        shape = CircleShape,
-        border = BorderStroke(1.dp, borderColor),
+    Box(
         modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .clickable(onClick = onClick)
+            .size(48.dp)
+            .clickable(
+                onClick = onClick,
+                role = Role.Button,
+                onClickLabel = contentDescription
+            )
+            .semantics {
+                this.contentDescription = contentDescription
+            },
+        contentAlignment = Alignment.Center
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Canvas(modifier = Modifier.size(16.dp)) {
+        Surface(
+            color = bgColor,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, borderColor),
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Canvas(modifier = Modifier.size(16.dp)) {
                 val w = size.width
                 val h = size.height
                 val s = 1.6.dp.toPx()
@@ -849,25 +919,30 @@ private fun BambuModularBottomSheet(
                     val bg = if (selected) BambuGreenPrimary else BambuSlateElevated
                     val fg = if (selected) Color(0xFF041F0C) else BambuTextSecondary
 
+                    val tabTitle = stringResource(tab.titleResId)
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
                             .background(bg)
-                            .clickable {
-                                if (!isExpanded) {
-                                    onSelectTab(tab)
-                                } else if (activeTab == tab) {
-                                    onToggleExpanded()
-                                } else {
-                                    onSelectTab(tab)
+                            .clickable(
+                                role = Role.Tab,
+                                onClickLabel = tabTitle,
+                                onClick = {
+                                    if (!isExpanded) {
+                                        onSelectTab(tab)
+                                    } else if (activeTab == tab) {
+                                        onToggleExpanded()
+                                    } else {
+                                        onSelectTab(tab)
+                                    }
                                 }
-                            }
+                            )
                             .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = tab.title,
+                            text = tabTitle,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             color = fg,
@@ -1069,7 +1144,7 @@ private fun ModelTabContent(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Cargar STL / 3MF", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.action_open_file), fontWeight = FontWeight.Bold)
             }
             OutlinedButton(
                 onClick = onLoadSampleClick,
@@ -1077,7 +1152,7 @@ private fun ModelTabContent(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Pieza Calibración", color = BambuTextPrimary)
+                Text(stringResource(R.string.action_load_sample), color = BambuTextPrimary)
             }
         }
     }
@@ -1095,7 +1170,7 @@ private fun MaterialTabContent(
     onWireframeWidthChange: (Float) -> Unit
 ) {
     Text(
-        text = "PRESET DE FILAMENTO BAMBU LAB",
+        text = "PRESET DE FILAMENTO INDUSTRIAL",
         style = MaterialTheme.typography.labelMedium,
         color = BambuTextSecondary
     )
@@ -1162,18 +1237,32 @@ private fun MaterialTabContent(
     ) {
         BambuFilamentPalette.forEach { swatch ->
             val isSelected = swatch.hex == selectedSwatch.hex
+            val swatchDescription = stringResource(R.string.cd_color_swatch, swatch.name)
             Box(
                 modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(swatch.color)
-                    .border(
-                        width = if (isSelected) 3.dp else 1.dp,
-                        color = if (isSelected) BambuGreenBright else BambuBorderSubtle,
-                        shape = CircleShape
+                    .size(44.dp)
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = swatchDescription,
+                        onClick = { onSelectSwatch(swatch) }
                     )
-                    .clickable { onSelectSwatch(swatch) }
-            )
+                    .semantics {
+                        contentDescription = swatchDescription
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(swatch.color)
+                        .border(
+                            width = if (isSelected) 3.dp else 1.dp,
+                            color = if (isSelected) BambuGreenBright else BambuBorderSubtle,
+                            shape = CircleShape
+                        )
+                )
+            }
         }
     }
 
@@ -1743,12 +1832,16 @@ private fun CompactTransformChip(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(
+            role = Role.Button,
+            onClickLabel = text,
+            onClick = onClick
+        ),
         color = if (isSelected) BambuGreenDim else BambuSlateElevated,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, if (isSelected) BambuGreenBright else BambuBorderSubtle)
     ) {
-        Box(modifier = Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelMedium,
@@ -1766,12 +1859,16 @@ private fun AxisRotationButton(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(
+            role = Role.Button,
+            onClickLabel = label,
+            onClick = onClick
+        ),
         color = BambuSlateElevated,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, axisColor.copy(alpha = 0.65f))
     ) {
-        Box(modifier = Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
@@ -1800,18 +1897,18 @@ private fun EmptyWorkspacePrompt(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             TechnicalBadge(
-                text = "MANUFACTURA ADITIVA // STL & 3MF // OPENGL ES 2.0",
+                text = stringResource(R.string.empty_privacy_badge),
                 backgroundColor = BambuGreenDim,
                 contentColor = BambuGreenBright
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "Rabbit3D Viewer",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.titleLarge
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Importa un archivo .STL (Binario o ASCII) o .3MF para analizar volumen, peso de filamento, cortes transversales Z y ángulos de voladizo.",
+                text = stringResource(R.string.empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = BambuTextSecondary
             )
@@ -1825,25 +1922,29 @@ private fun EmptyWorkspacePrompt(
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Cargar STL / 3MF", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.action_open_file), fontWeight = FontWeight.Bold)
                 }
                 OutlinedButton(
                     onClick = onLoadSampleClick,
                     border = BorderStroke(1.dp, BambuBorderSubtle),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Pieza de Calibración", color = BambuTextPrimary)
+                    Text(stringResource(R.string.action_load_sample), color = BambuTextPrimary)
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "Acerca de / Privacidad: Procesamiento 100% local sin recopilación de datos",
+                text = stringResource(R.string.about_title),
                 style = MaterialTheme.typography.labelSmall,
                 color = BambuTextMuted,
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .clickable(onClick = onPrivacyInfoClick)
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = stringResource(R.string.about_title),
+                        onClick = onPrivacyInfoClick
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
             )
         }
     }
@@ -1866,7 +1967,7 @@ private fun LoadingProgressCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "PROCESANDO GEOMETRÍA 3D (STL / 3MF)... $pct%",
+                text = "${stringResource(R.string.loading_title)}... $pct%",
                 style = MaterialTheme.typography.titleSmall,
                 color = BambuGreenBright
             )
@@ -1902,7 +2003,7 @@ private fun ErrorDiagnosticCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "ERROR DE LECTURA STL / 3MF",
+                text = stringResource(R.string.error_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = OverhangAlertRed
             )
@@ -1918,13 +2019,13 @@ private fun ErrorDiagnosticCard(
                     onClick = onRetryClick,
                     colors = ButtonDefaults.buttonColors(containerColor = OverhangAlertRed)
                 ) {
-                    Text("Cargar STL / 3MF", color = Color.White)
+                    Text(stringResource(R.string.action_open_file), color = Color.White)
                 }
                 OutlinedButton(
                     onClick = onSampleClick,
                     border = BorderStroke(1.dp, BambuBorderSubtle)
                 ) {
-                    Text("Cargar Calibración", color = BambuTextPrimary)
+                    Text(stringResource(R.string.action_load_sample), color = BambuTextPrimary)
                 }
             }
         }
@@ -1952,7 +2053,7 @@ private fun AboutPrivacyDialog(
                         .background(BambuGreenBright)
                 )
                 Text(
-                    text = "Acerca de Rabbit3D Viewer",
+                    text = stringResource(R.string.about_title),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -1960,18 +2061,18 @@ private fun AboutPrivacyDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TechnicalBadge(
-                    text = "VERSIÓN 1.0.0 • STL & 3MF CAD ENGINE",
+                    text = stringResource(R.string.about_version),
                     backgroundColor = BambuGreenDim,
                     contentColor = BambuGreenBright
                 )
                 Text(
-                    text = "Rabbit3D Viewer procesa los modelos 3D 100% de forma local en el dispositivo y no recopila ni comparte datos personales.",
+                    text = stringResource(R.string.about_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = BambuTextPrimary,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "• Sin servidores externos ni telemetría.\n• Acceso a archivos exclusivamente bajo selección del usuario (Storage Access Framework).\n• Soporte nativo para mallas .STL (Binario/ASCII) y contenedores .3MF.",
+                    text = "${stringResource(R.string.about_bullet1)}\n${stringResource(R.string.about_bullet2)}\n${stringResource(R.string.about_bullet3)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = BambuTextSecondary
                 )
@@ -1986,7 +2087,7 @@ private fun AboutPrivacyDialog(
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Entendido", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.action_understood), fontWeight = FontWeight.Bold)
             }
         }
     )

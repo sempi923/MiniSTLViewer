@@ -26,11 +26,11 @@ val AxisXRed = Color(0xFFFF4D4F)              // Eje X (Rojo CAD)
 val AxisYGreen = Color(0xFF00BE4E)            // Eje Y (Verde CAD)
 val AxisZBlue = Color(0xFF3B82F6)             // Eje Z (Azul CAD)
 
-// Catálogo de Colores de Filamento Bambu Lab
+// Catálogo de Colores de Filamento Industrial FDM
 data class FilamentSwatches(val name: String, val hex: String, val color: Color)
 
 val BambuFilamentPalette = listOf(
-    FilamentSwatches("Bambu Green", "#00AE42", Color(0xFF00AE42)),
+    FilamentSwatches("Industrial Green", "#00AE42", Color(0xFF00AE42)),
     FilamentSwatches("Jade White", "#F4F5F0", Color(0xFFF4F5F0)),
     FilamentSwatches("Charcoal Black", "#26282A", Color(0xFF26282A)),
     FilamentSwatches("Space Gray", "#7A828C", Color(0xFF7A828C)),

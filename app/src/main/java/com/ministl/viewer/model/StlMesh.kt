@@ -36,7 +36,7 @@ enum class FilamentMaterial(
     val defaultPricePerKg: Float = 20.0f
 ) {
     PLA(
-        displayName = "Bambu PLA Basic",
+        displayName = "PLA Basic",
         shortTag = "PLA",
         densityGPerCm3 = 1.24f,
         ambient = 0.25f,
@@ -47,7 +47,7 @@ enum class FilamentMaterial(
         defaultPricePerKg = 19.99f
     ),
     PETG(
-        displayName = "Bambu PETG HF",
+        displayName = "PETG High Flow",
         shortTag = "PETG",
         densityGPerCm3 = 1.27f,
         ambient = 0.23f,
@@ -58,7 +58,7 @@ enum class FilamentMaterial(
         defaultPricePerKg = 21.99f
     ),
     ABS(
-        displayName = "Bambu ABS",
+        displayName = "ABS Standard",
         shortTag = "ABS",
         densityGPerCm3 = 1.04f,
         ambient = 0.27f,
@@ -69,7 +69,7 @@ enum class FilamentMaterial(
         defaultPricePerKg = 22.99f
     ),
     MATTE(
-        displayName = "Bambu PLA Matte",
+        displayName = "PLA Matte",
         shortTag = "Matte",
         densityGPerCm3 = 1.24f,
         ambient = 0.32f,
@@ -80,7 +80,7 @@ enum class FilamentMaterial(
         defaultPricePerKg = 20.99f
     ),
     SILK(
-        displayName = "Bambu PLA Silk",
+        displayName = "PLA Silk",
         shortTag = "Silk",
         densityGPerCm3 = 1.24f,
         ambient = 0.20f,
@@ -91,7 +91,7 @@ enum class FilamentMaterial(
         defaultPricePerKg = 24.99f
     ),
     CF(
-        displayName = "Bambu PAHT-CF",
+        displayName = "PAHT-CF High Temp",
         shortTag = "PA-CF",
         densityGPerCm3 = 1.18f,
         ambient = 0.22f,

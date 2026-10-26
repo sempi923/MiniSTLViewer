@@ -26,29 +26,20 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Verify or Generate Release Keystore
+      - name: Decode Release Keystore
+        if: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
         run: |
-          if [ ! -f app/release-key.jks ] || ! keytool -list -keystore app/release-key.jks -storepass Rabbit3DPass2026 -alias rabbit3d >/dev/null 2>&1; then
-            rm -f app/release-key.jks
-            keytool -genkeypair -v \
-              -keystore app/release-key.jks \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -alias rabbit3d \
-              -storepass Rabbit3DPass2026 \
-              -keypass Rabbit3DPass2026 \
-              -dname "CN=Rabbit3D Viewer, OU=Mobile 3D Engineering, O=Rabbit3D, L=Madrid, ST=Madrid, C=ES"
-          fi
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > app/release-key.jks
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Build Signed Release AAB for Google Play Store
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'Rabbit3DPass2026' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'rabbit3d' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'Rabbit3DPass2026' }}
+          KEYSTORE_PATH: "release-key.jks"
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundleRelease --stacktrace
 
       - name: Upload Debug APK Artifact
@@ -56,11 +47,13 @@ jobs:
         with:
           name: Rabbit3D-Viewer-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Upload Play Store Release AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Rabbit3D-Viewer-PlayStore-AAB
-          path: app/build/outputs/bundle/release/app-release.aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: warn
           retention-days: 30

@@ -72,7 +72,13 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_VIEW) {
             intent.data?.let { uri ->
-                viewModel.loadStlFromUri(applicationContext, uri)
+                try {
+                    viewModel.loadStlFromUri(applicationContext, uri)
+                } catch (_: SecurityException) {
+                    // Prevenir caída de la app si el intent proviene de un origen sin permisos
+                } catch (_: Exception) {
+                    // Los errores de lectura del archivo se canalizan a través del UiState del ViewModel
+                }
             }
         }
     }
